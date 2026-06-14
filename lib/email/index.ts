@@ -1,11 +1,18 @@
 /**
- * Email adapter. Picks the first configured provider in this order:
- *   1. Resend       (RESEND_API_KEY)         — primary
- *   2. Postmark     (POSTMARK_SERVER_TOKEN)  — fallback
- *   3. SendGrid     (SENDGRID_API_KEY)       — fallback
- *   4. Noop         — logs to events table for visibility, returns ok
+ * Email adapter — SendGrid only.
  *
- * Switching providers is just changing env vars in Vercel. No code changes.
+ * Provider locked in by Omri 2026-06-14: SendGrid is the production email sender.
+ * Set `SENDGRID_API_KEY` on Vercel. If missing, every send falls through to the
+ * noop branch and gets logged to the `events` table so we can see what would have
+ * gone out.
+ *
+ * From address: `LICENSER_EMAIL_FROM` (default `Licenser <licenses@gloo.ooo>`).
+ * Make sure the from-domain is verified in your SendGrid sender authentication
+ * (Settings → Sender Authentication → Domain Auth on gloo.ooo).
+ *
+ * Optional: if you want to use a SendGrid Dynamic Template instead of inline HTML,
+ * set `LICENSER_SENDGRID_TEMPLATE_ID` and pass `templateData` per call (caller
+ * change required — current call sites all pass `html`).
  */
 import { db } from '@/lib/licenser/db';
 
@@ -21,56 +28,23 @@ export interface SendEmailArgs {
 
 export interface SendEmailResult {
   ok: boolean;
-  provider: 'resend' | 'postmark' | 'sendgrid' | 'noop';
+  provider: 'sendgrid' | 'noop';
   id?: string;
   error?: string;
 }
 
 const DEFAULT_FROM = process.env.LICENSER_EMAIL_FROM ?? 'Licenser <licenses@gloo.ooo>';
 
+/** Pulls just the bare email out of a `"Name <email@x>"` string. */
+function parseFrom(s: string): { email: string; name?: string } {
+  const m = s.match(/^\s*(.*?)\s*<\s*([^>]+?)\s*>\s*$/);
+  if (m) return { name: m[1] || undefined, email: m[2] };
+  return { email: s.trim() };
+}
+
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const from = args.from ?? DEFAULT_FROM;
-
-  if (process.env.RESEND_API_KEY) {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from, to: args.to, subject: args.subject, html: args.html,
-        text: args.text, reply_to: args.replyTo, tags: args.tag ? [{ name: 'category', value: args.tag }] : undefined,
-      }),
-    });
-    if (!r.ok) {
-      const error = await r.text();
-      return { ok: false, provider: 'resend', error: error.slice(0, 500) };
-    }
-    const data = await r.json() as { id?: string };
-    return { ok: true, provider: 'resend', id: data.id };
-  }
-
-  if (process.env.POSTMARK_SERVER_TOKEN) {
-    const r = await fetch('https://api.postmarkapp.com/email', {
-      method: 'POST',
-      headers: {
-        'X-Postmark-Server-Token': process.env.POSTMARK_SERVER_TOKEN,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        From: from, To: args.to, Subject: args.subject, HtmlBody: args.html, TextBody: args.text,
-        ReplyTo: args.replyTo, Tag: args.tag, MessageStream: 'outbound',
-      }),
-    });
-    if (!r.ok) {
-      const error = await r.text();
-      return { ok: false, provider: 'postmark', error: error.slice(0, 500) };
-    }
-    const data = await r.json() as { MessageID?: string };
-    return { ok: true, provider: 'postmark', id: data.MessageID };
-  }
+  const fromParts = parseFrom(from);
 
   if (process.env.SENDGRID_API_KEY) {
     const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
@@ -81,7 +55,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: args.to }] }],
-        from: { email: from.replace(/.*<|>.*/g, '') || from, name: from.split('<')[0].trim() || undefined },
+        from: fromParts,
         reply_to: args.replyTo ? { email: args.replyTo } : undefined,
         subject: args.subject,
         content: [
@@ -102,7 +76,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   try {
     await db().from('events').insert({
       type: 'email.noop',
-      data: { to: args.to, subject: args.subject, tag: args.tag ?? null, reason: 'no provider env var set' },
+      data: { to: args.to, subject: args.subject, tag: args.tag ?? null, reason: 'SENDGRID_API_KEY not set' },
     });
   } catch { /* swallow */ }
   return { ok: true, provider: 'noop' };
