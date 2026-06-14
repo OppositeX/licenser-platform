@@ -61,11 +61,13 @@ export default async function LicensesPage({ searchParams }: { searchParams: { p
         <button type="submit" style={btn}>Issue license</button>
       </form>
 
-      <form method="get" style={{ marginBottom: 18 }}>
-        <select name="product" defaultValue={searchParams.product ?? ''} onChange={(e) => e.currentTarget.form?.submit()} style={inp}>
+      <form method="get" style={{ marginBottom: 18, display: 'flex', gap: 10 }}>
+        <select name="product" defaultValue={searchParams.product ?? ''} style={inp}>
           <option value="">All products</option>
           {(products ?? []).map((p: { id: string; name: string }) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        <button type="submit" style={btn}>Filter</button>
+        {searchParams.product && <a href="/admin/licenses" style={{ ...btn, background: '#1f2937', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Clear</a>}
       </form>
 
       <div style={{ background: '#14171f', border: '1px solid #1f2937', borderRadius: 12, overflow: 'hidden' }}>
