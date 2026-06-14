@@ -5,7 +5,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     name: 'licenser-platform',
-    version: '0.2.0',
+    version: '0.3.0',
     time: new Date().toISOString(),
   });
 }

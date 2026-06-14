@@ -63,11 +63,14 @@ export default async function Page() {
           <div><span style={{ color: '#fcd34d' }}>GET</span>&nbsp; /api/v1/update-check &nbsp;<span style={{ color: '#64748b' }}>(alias: /update)</span></div>
           <div><span style={{ color: '#86efac' }}>POST</span> /api/v1/feedback</div>
           <div><span style={{ color: '#fcd34d' }}>GET</span>&nbsp; /api/v1/health</div>
+          <div style={{ marginTop: 10, color: '#64748b' }}>{'—'} v2 (cnvs-licenser) {'—'}</div>
+          <div><span style={{ color: '#86efac' }}>POST</span> /api/v2/validate &nbsp;<span style={{ color: '#64748b' }}>(CORS open · returns active/tier/features)</span></div>
+          <div><span style={{ color: '#86efac' }}>POST</span> /api/webhooks/woocommerce &nbsp;<span style={{ color: '#64748b' }}>(HMAC-SHA256 verified)</span></div>
         </div>
       </section>
 
       <footer style={{ marginTop: 64, color: '#475569', fontSize: 12 }}>
-        v0.2.0 · build {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local'} · built by Gloo Software
+        v0.3.0 · build {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local'} · built by Gloo Software
       </footer>
     </main>
   );
