@@ -32,11 +32,6 @@ export default async function Page() {
         {status.ok ? 'REST online' : 'REST offline'}
       </div>
       <h1 style={{ fontSize: 44, margin: '20px 0 12px', letterSpacing: '-0.02em' }}>Licenser</h1>
-      <p style={{ color: '#94a3b8', fontSize: 17, margin: '0 0 28px', lineHeight: 1.5 }}>
-        Self-hosted license + update delivery for the Gloo plugin ecosystem.
-        Replacing the WP install at <code style={{ background: '#14171f', padding: '2px 8px', borderRadius: 6, fontSize: 13 }}>licenser.d3v.co.il</code>.
-      </p>
-
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', margin: '28px 0' }}>
         <Stat label="Products" value={status.products} />
         <Stat label="Active licenses" value={status.licenses} />
