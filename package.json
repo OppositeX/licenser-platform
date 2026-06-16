@@ -2,11 +2,15 @@
   "name": "licenser-platform",
   "version": "0.3.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:sdk": "npm -w @gloo/licenser-client run build"
   },
   "dependencies": {
     "next": "14.2.5",
