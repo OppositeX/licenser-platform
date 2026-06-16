@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { db } from '@/lib/licenser/db';
 
 export const dynamic = 'force-dynamic';
@@ -20,16 +21,27 @@ async function loadStatus() {
 
 export default async function Page() {
   const status = await loadStatus();
+  const h = headers();
+  const host = h.get('host') ?? '';
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '80px 28px' }}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', borderRadius: 999,
-        background: status.ok ? 'linear-gradient(135deg,#34d399,#10b981)' : 'linear-gradient(135deg,#f87171,#dc2626)',
-        color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
-      }}>
-        <span style={{ width: 6, height: 6, borderRadius: 999, background: '#fff' }} />
-        {status.ok ? 'REST online' : 'REST offline'}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', borderRadius: 999,
+          background: status.ok ? 'linear-gradient(135deg,#34d399,#10b981)' : 'linear-gradient(135deg,#f87171,#dc2626)',
+          color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: '#fff' }} />
+          {status.ok ? 'REST online' : 'REST offline'}
+        </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999,
+          background: isLocal ? '#1e3a8a' : '#3f3f46', color: '#fff',
+          fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+          fontFamily: 'ui-monospace, Menlo, monospace',
+        }}>{isLocal ? 'LOCAL' : 'PROD'} · {host}</div>
       </div>
       <h1 style={{ fontSize: 44, margin: '20px 0 12px', letterSpacing: '-0.02em' }}>Licenser</h1>
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', margin: '28px 0' }}>

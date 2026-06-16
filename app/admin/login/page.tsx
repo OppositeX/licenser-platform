@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { browserClient } from '@/lib/supabase/browser';
 
 type Mode = 'password' | 'magic';
@@ -12,6 +12,10 @@ export default function LoginPage({ searchParams }: { searchParams: { denied?: s
   const [sent, setSent]   = useState(false);
   const [err, setErr]     = useState<string | null>(null);
   const [busy, setBusy]   = useState(false);
+  const [isLocal, setIsLocal] = useState(false);
+  useEffect(() => {
+    setIsLocal(typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+  }, []);
 
   async function submitPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +67,14 @@ export default function LoginPage({ searchParams }: { searchParams: { denied?: s
       {searchParams?.denied === '1' && (
         <div style={{ background: '#3b0f1a', border: '1px solid #7f1d1d', color: '#fecaca', padding: '12px 14px', borderRadius: 8, marginBottom: 18, fontSize: 13 }}>
           That email is not on the admins list. Ask an existing admin to add it.
+        </div>
+      )}
+
+      {isLocal && (
+        <div style={{ background: '#1e3a5f', border: '1px solid #1e40af', color: '#bfdbfe', padding: '12px 14px', borderRadius: 8, marginBottom: 18, fontSize: 12, lineHeight: 1.5 }}>
+          <strong>LOCAL dev</strong> — Google OAuth will bounce you to production unless
+          <code style={{ background: '#0f1e3a', padding: '1px 6px', borderRadius: 4, margin: '0 4px' }}>http://localhost:3000/admin/auth/callback</code>
+          is added to Supabase → Auth → URL Configuration → Redirect URLs. Use email + password below to test locally without that.
         </div>
       )}
 
