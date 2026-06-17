@@ -83,11 +83,12 @@ foreach ($it as $file) {
 fwrite(STDOUT, "\nDone. Namespace set to: {$ns}\\Licenser\n");
 fwrite(STDOUT, "Files rewritten: {$rewritten}, skipped: {$skipped}\n");
 fwrite(STDOUT, "\nNext steps:\n");
-fwrite(STDOUT, "  1. require_once __DIR__ . '/sdk/SDK.php';\n");
-fwrite(STDOUT, "  2. \$sdk = new \\{$ns}\\Licenser\\SDK([\n");
-fwrite(STDOUT, "       'endpoint'     => 'https://licenser-platform.vercel.app',\n");
+fwrite(STDOUT, "  1. require_once __DIR__ . '/includes/licenser-sdk/SDK.php';\n");
+fwrite(STDOUT, "  2. \\{$ns}\\Licenser\\SDK::init([\n");
+fwrite(STDOUT, "       'server_url'   => 'https://licenser-platform.vercel.app',\n");
 fwrite(STDOUT, "       'product_slug' => 'your-plugin-slug',\n");
 fwrite(STDOUT, "       'plugin_file'  => __FILE__,\n");
+fwrite(STDOUT, "       'plugin_slug'  => 'your-plugin/your-plugin.php',\n");
+fwrite(STDOUT, "       'version'      => '1.0.0',\n");
 fwrite(STDOUT, "       'option_key'   => 'your_plugin_license',\n");
 fwrite(STDOUT, "     ]);\n");
-fwrite(STDOUT, "  3. \$sdk->boot();\n");

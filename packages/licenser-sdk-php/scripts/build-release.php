@@ -92,13 +92,14 @@ $installMd = <<<MD
 
    ```php
    require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
-   \$sdk = new \MyPlugin\Licenser\SDK([
-       'endpoint'     => 'https://licenser-platform.vercel.app',
+   \MyPlugin\Licenser\SDK::init([
+       'server_url'   => 'https://licenser-platform.vercel.app',
        'product_slug' => 'your-plugin-slug',
        'plugin_file'  => __FILE__,
+       'plugin_slug'  => 'your-plugin/your-plugin.php',
+       'version'      => '1.0.0',
        'option_key'   => 'your_plugin_license',
    ]);
-   \$sdk->boot();
    ```
 
 That's it — the SDK now handles activation, validation, updates, and feedback.

@@ -12,7 +12,7 @@
  *     'plugin_file'   => __FILE__,
  *     'plugin_slug'   => 'canvas-studio/canvas-studio.php',
  *     'version'       => '1.4.2',
- *     'server_url'    => 'https://licenser.d3v.co.il',
+ *     'server_url'    => 'https://licenser-platform.vercel.app',
  *     'option_key'    => 'canvas_studio_license',     // unique per plugin
  *     'js_global'     => 'CanvasStudioLicenser',      // unique window global
  *     'css_class'     => 'canvas-studio-licenser',    // unique CSS namespace

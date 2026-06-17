@@ -103,7 +103,7 @@ function App() {
         <code style={{ color: '#a78bfa' }}>awesome-plugin</code>. Substitute your own values in the same positions.
       </p>
 
-      <Card title="What you'll get" subtitle="One $sdk->boot() call wires every WP hook the SDK needs.">
+      <Card title="What you'll get" subtitle="One SDK::init() call wires every WP hook the SDK needs.">
         <ul style={{ margin: 0, padding: '0 0 0 18px', color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
           <li><strong>Settings page</strong> — License entry / status under Settings → License (configurable parent menu).</li>
           <li><strong>Updater</strong> — WP "Update" button fetches from this platform via <code style={{ color: '#a78bfa' }}>pre_set_site_transient_update_plugins</code> + <code style={{ color: '#a78bfa' }}>plugins_api</code>.</li>
@@ -177,7 +177,7 @@ function App() {
         </p>
       </Card>
 
-      <Card title="Step 3 — Wire it up in your main plugin file" subtitle="Paste these 9 lines near the top of awesome-plugin.php (after the plugin header comment).">
+      <Card title="Step 3 — Wire it up in your main plugin file" subtitle="Paste this SDK::init() call near the top of awesome-plugin.php (after the plugin header comment).">
         {code(`<?php
 /**
  * Plugin Name: Awesome Plugin
@@ -186,15 +186,20 @@ function App() {
 
 require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
 
-$sdk = new \\Acme\\AwesomePlugin\\Licenser\\SDK([
-    'endpoint'     => '${base}',
-    'product_slug' => 'awesome-plugin',           // matches the slug on /admin/products
-    'plugin_file'  => __FILE__,                   // used for the WP updater hooks
-    'option_key'   => 'awesome_plugin_license',   // unique per plugin — avoids option collisions
+\\Acme\\AwesomePlugin\\Licenser\\SDK::init([
+    // Required — these six keys are all validated in Config.php and will wp_die() if missing.
+    'server_url'   => '${base}',                                  // where this licenser-platform lives
+    'product_slug' => 'awesome-plugin',                           // matches the slug on /admin/products
+    'plugin_file'  => __FILE__,                                   // used for the WP updater hooks
+    'plugin_slug'  => 'acme-awesome-plugin/awesome-plugin.php',   // dir-name/main-file.php — how WP identifies your plugin
+    'version'      => '1.0.0',                                    // keep this in sync with the Plugin Header above
+    'option_key'   => 'awesome_plugin_license',                   // unique per plugin — avoids WP option collisions
 ]);
-$sdk->boot();
 
 // ... rest of your plugin code ...`)}
+        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
+          The API is static — there's no <code style={{ color: '#a78bfa' }}>new SDK(...)</code> instance to keep around. <code style={{ color: '#a78bfa' }}>SDK::init()</code> registers every hook on first call and is idempotent. Later, anywhere in your plugin: <code style={{ color: '#a78bfa' }}>\\Acme\\AwesomePlugin\\Licenser\\SDK::is_valid()</code> returns a bool, and <code style={{ color: '#a78bfa' }}>SDK::client()</code> gives you the Client for advanced ops (manual activate/deactivate/refresh).
+        </p>
       </Card>
 
       <Card title="Step 4 — Activate and verify" subtitle="Sanity-check the install end-to-end.">

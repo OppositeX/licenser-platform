@@ -10,7 +10,7 @@ call the same REST surface and respect the same rules.
 
 | File | Role |
 |---|---|
-| `SDK.php` | Public entry point: `new SDK($cfg); $sdk->boot();` and `SDK::is_valid()` |
+| `SDK.php` | Public entry point: `SDK::init($cfg)`, `SDK::is_valid()`, `SDK::client()` |
 | `Config.php` | Validates init args |
 | `Client.php` | HTTP wrapper + state machine, single-option storage |
 | `Cache.php` | 12–24h cache + update transient |
@@ -68,14 +68,18 @@ inside the zip. The zip contents are byte-identical to what `install-sdk.sh` wri
 ```php
 require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
 
-$sdk = new \MyPlugin\Licenser\SDK([
-    'endpoint'     => 'https://licenser-platform.vercel.app',
+\MyPlugin\Licenser\SDK::init([
+    'server_url'   => 'https://licenser-platform.vercel.app',
     'product_slug' => 'your-plugin-slug',
     'plugin_file'  => __FILE__,
+    'plugin_slug'  => 'my-plugin/my-plugin.php',
+    'version'      => '1.0.0',
     'option_key'   => 'my_plugin_license',  // unique per plugin — avoids option collisions
 ]);
-$sdk->boot();
 ```
+
+The API is **static** — `SDK::init()` registers every WP hook on first call and is idempotent.
+There is no `new SDK(...)` constructor and no `$sdk->boot()` method.
 
 ## Why namespace rewriting matters
 
@@ -87,13 +91,13 @@ namespace per-plugin (e.g. to `MyPlugin\Licenser`) makes every copy isolated.
 ## init() config
 
 ```php
-$sdk = new \MyPlugin\Licenser\SDK([
-    // Required
+\MyPlugin\Licenser\SDK::init([
+    // Required — Config.php wp_die()s if any of these are missing
+    'server_url'   => 'https://licenser-platform.vercel.app',
     'product_slug' => 'canvas-studio',
     'plugin_file'  => __FILE__,
     'plugin_slug'  => 'canvas-studio/canvas-studio.php',
     'version'      => '1.4.2',
-    'endpoint'     => 'https://licenser-platform.vercel.app',
     'option_key'   => 'canvas_studio_license',  // unique per plugin
 
     // Recommended (must be unique to avoid conflicts)
@@ -140,5 +144,5 @@ Licenser outage.
 ## Security
 
 - License key plaintext is stored only in the SDK's option (single key, never in plugin meta).
-- The SDK never sends the plaintext key over HTTP except to the configured `endpoint` (HTTPS strongly recommended).
+- The SDK never sends the plaintext key over HTTP except to the configured `server_url` (HTTPS strongly recommended).
 - All HMAC verification happens server-side; the SDK only handles raw URLs returned by the platform.
