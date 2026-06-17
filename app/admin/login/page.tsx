@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { browserClient } from '@/lib/supabase/browser';
 
 type Mode = 'password' | 'magic';
 
-export default function LoginPage({ searchParams }: { searchParams: { denied?: string } }) {
+export default function LoginPage(props: { searchParams: Promise<{ denied?: string }> }) {
+  const searchParams = use(props.searchParams);
   const [mode, setMode]   = useState<Mode>('password');
   const [email, setEmail] = useState('');
   const [pass, setPass]   = useState('');

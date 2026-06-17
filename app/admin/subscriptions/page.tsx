@@ -21,7 +21,8 @@ interface SubRow {
   plans: { slug: string; name: string } | null;
 }
 
-export default async function SubscriptionsPage({ searchParams }: { searchParams: { source?: 'woo' | 'stripe' | 'all' } }) {
+export default async function SubscriptionsPage(props: { searchParams: Promise<{ source?: 'woo' | 'stripe' | 'all' }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const source = (searchParams.source ?? 'all');
 

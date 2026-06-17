@@ -57,7 +57,10 @@ async function deleteRelease(formData: FormData) {
   redirect(`/admin/releases?product=${product_id}&ok=Release%20deleted`);
 }
 
-export default async function ReleasesPage({ searchParams }: { searchParams: { product?: string; new?: string; edit?: string; ok?: string; error?: string } }) {
+export default async function ReleasesPage(
+  props: { searchParams: Promise<{ product?: string; new?: string; edit?: string; ok?: string; error?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const { data: products } = await supa.from('products').select('id,slug,name').order('name');

@@ -46,12 +46,13 @@ async function testPayload(formData: FormData) {
   redirect('/admin/integrations/github?ok=Test%20delivery%20recorded');
 }
 
-export default async function GithubSettings({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+export default async function GithubSettings(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const settings = await getAllSettings();
 
-  const h = headers();
+  const h = await headers();
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const host = h.get('host') ?? 'localhost:3000';
   const webhookUrl = `${proto}://${host}/api/webhooks/github`;

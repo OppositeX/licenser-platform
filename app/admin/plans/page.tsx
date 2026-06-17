@@ -78,7 +78,10 @@ function formatPeriod(p: PlanFull): string {
   return `${p.period_count} ${p.period}${p.period_count === 1 ? '' : 's'}`;
 }
 
-export default async function PlansPage({ searchParams }: { searchParams: { new?: string; edit?: string; ok?: string; error?: string } }) {
+export default async function PlansPage(
+  props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([

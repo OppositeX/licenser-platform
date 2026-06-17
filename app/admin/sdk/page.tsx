@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function SdkDocsPage() {
   const { email } = await requireAdmin();
-  const h = headers();
+  const h = await headers();
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const host = h.get('host') ?? 'localhost:3000';
   const base = `${proto}://${host}`;

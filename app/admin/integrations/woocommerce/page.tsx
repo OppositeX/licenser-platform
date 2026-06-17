@@ -53,12 +53,13 @@ async function syncOrder(formData: FormData) {
   redirect(`/admin/integrations/woocommerce?ok=Logged%20sync%20request%20for%20order%20${orderId}`);
 }
 
-export default async function WooCommerceSettings({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+export default async function WooCommerceSettings(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const settings = await getAllSettings();
 
-  const h = headers();
+  const h = await headers();
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const host = h.get('host') ?? 'localhost:3000';
   const webhookUrl = `${proto}://${host}/api/webhooks/woocommerce`;

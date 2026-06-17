@@ -24,7 +24,10 @@ async function clearLogs() {
   redirect('/admin/logs?ok=Logs%20cleared');
 }
 
-export default async function LogsPage({ searchParams }: { searchParams: { level?: string; channel?: string; ok?: string; error?: string } }) {
+export default async function LogsPage(
+  props: { searchParams: Promise<{ level?: string; channel?: string; ok?: string; error?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
 

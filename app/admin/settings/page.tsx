@@ -35,7 +35,8 @@ async function rotateSigningSecret() {
   redirect('/admin/settings?ok=Signing%20secret%20rotated');
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+export default async function SettingsPage(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const settings = await getAllSettings();
 

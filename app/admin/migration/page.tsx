@@ -23,17 +23,18 @@ async function runImport(formData: FormData) {
     message: `AppSero import${dryRun ? ' (dry-run)' : ''}: ${result.imported} imported, ${result.skipped} skipped, ${result.errors.length} errors`,
     context: { admin: email, dry_run: dryRun, ...result },
   });
-  cookies().set('migration_result', JSON.stringify(result), { maxAge: 600, httpOnly: true });
+  (await cookies()).set('migration_result', JSON.stringify(result), { maxAge: 600, httpOnly: true });
   revalidatePath('/admin/migration');
   redirect(`/admin/migration?ok=${encodeURIComponent(`Import ${dryRun ? '(dry-run) ' : ''}completed: ${result.imported} imported, ${result.skipped} skipped`)}`);
 }
 
-export default async function MigrationPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+export default async function MigrationPage(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const { data: products } = await db().from('products').select('slug,name').order('name');
   const productList = (products ?? []) as Array<{ slug: string; name: string }>;
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const lastRaw = cookieStore.get('migration_result')?.value;
   let last: ImportResult | null = null;
   try { if (lastRaw) last = JSON.parse(lastRaw) as ImportResult; } catch { last = null; }

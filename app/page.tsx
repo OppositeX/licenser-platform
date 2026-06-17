@@ -21,7 +21,7 @@ async function loadStatus() {
 
 export default async function Page() {
   const status = await loadStatus();
-  const h = headers();
+  const h = await headers();
   const host = h.get('host') ?? '';
   const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 

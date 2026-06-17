@@ -18,7 +18,8 @@ interface FeedbackRow {
   products: { slug: string; name: string } | null;
 }
 
-export default async function FeedbackPage({ searchParams }: { searchParams: { reason?: string; product?: string } }) {
+export default async function FeedbackPage(props: { searchParams: Promise<{ reason?: string; product?: string }> }) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const { data: products } = await supa.from('products').select('id,name').order('name');

@@ -14,7 +14,10 @@ async function revokeActivation(formData: FormData) {
   revalidatePath('/admin/activations');
 }
 
-export default async function ActivationsPage({ searchParams }: { searchParams: { product?: string; ok?: string; error?: string } }) {
+export default async function ActivationsPage(
+  props: { searchParams: Promise<{ product?: string; ok?: string; error?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const { data: products } = await supa.from('products').select('id,name').order('name');

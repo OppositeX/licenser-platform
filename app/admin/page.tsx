@@ -35,7 +35,7 @@ export default async function AdminIndex() {
     supa.from('events').select('id,type,created_at,data').order('created_at', { ascending: false }).limit(10),
   ]);
 
-  const h = headers();
+  const h = await headers();
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const host = h.get('host') ?? 'localhost:3000';
   const origin = `${proto}://${host}`;

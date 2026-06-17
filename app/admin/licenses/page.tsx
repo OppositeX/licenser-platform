@@ -110,7 +110,10 @@ function isoLocal(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default async function LicensesPage({ searchParams }: { searchParams: { product?: string; status?: string; reveal?: string; ok?: string; error?: string; override?: string; new?: string } }) {
+export default async function LicensesPage(
+  props: { searchParams: Promise<{ product?: string; status?: string; reveal?: string; ok?: string; error?: string; override?: string; new?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([

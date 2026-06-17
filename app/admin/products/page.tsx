@@ -55,7 +55,10 @@ async function deleteProduct(formData: FormData) {
   redirect('/admin/products?ok=Product%20deleted');
 }
 
-export default async function ProductsPage({ searchParams }: { searchParams: { new?: string; edit?: string; ok?: string; error?: string } }) {
+export default async function ProductsPage(
+  props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const { email } = await requireAdmin();
   const { data: products } = await db().from('products').select('*').order('created_at', { ascending: false });
   const list = (products ?? []) as ProductFull[];
