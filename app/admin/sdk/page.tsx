@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/admin/auth';
 import { AdminShell, Card, ui } from '@/components/AdminShell';
+import WpInstallForm from './WpInstallForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,15 +98,12 @@ function App() {
       <h2 id="wp" style={{ ...ui.h2, marginTop: 32, color: '#f1f5f9', fontSize: 22 }}>WordPress — licenser-sdk-php</h2>
 
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 18px', lineHeight: 1.6 }}>
-        Four steps. The examples below use a fictional plugin: directory{' '}
-        <code style={{ color: '#a78bfa' }}>acme-awesome-plugin/</code>, namespace{' '}
-        <code style={{ color: '#a78bfa' }}>Acme\AwesomePlugin</code>, product slug{' '}
-        <code style={{ color: '#a78bfa' }}>awesome-plugin</code>. Substitute your own values in the same positions.
+        Three steps. The form below pre-rewrites the SDK with your namespace and generates a copy-paste-ready snippet — no terminal commands needed.
       </p>
 
       <Card title="What you'll get" subtitle="One SDK::init() call wires every WP hook the SDK needs.">
         <ul style={{ margin: 0, padding: '0 0 0 18px', color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
-          <li><strong>Settings page</strong> — License entry / status under Settings → License (configurable parent menu).</li>
+          <li><strong>License page</strong> — Activate / deactivate / refresh UI. Defaults to Settings → &lt;your label&gt;; pass <code style={{ color: '#a78bfa' }}>menu_parent</code> to nest it under your plugin's own top-level menu.</li>
           <li><strong>Updater</strong> — WP "Update" button fetches from this platform via <code style={{ color: '#a78bfa' }}>pre_set_site_transient_update_plugins</code> + <code style={{ color: '#a78bfa' }}>plugins_api</code>.</li>
           <li><strong>Twice-daily cron</strong> — Refreshes validation in the background so <code style={{ color: '#a78bfa' }}>SDK::is_valid()</code> is fast.</li>
           <li><strong>Pre-deactivation modal</strong> — Asks for a reason when the plugin is deactivated; posts to <code style={{ color: '#a78bfa' }}>/api/v1/feedback</code>.</li>
@@ -113,111 +111,55 @@ function App() {
         </ul>
       </Card>
 
-      <Card title="Before you start" subtitle="Check these three things first — the rest is mechanical.">
-        <ol style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8, margin: '0 0 0 18px', padding: 0 }}>
-          <li>You've cloned this repo locally (the SDK source lives at <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/</code>). No public release exists yet — clone is currently the only way to get it.</li>
-          <li>You've decided your plugin's PHP namespace prefix. Use vendor-prefixed (e.g. <code style={{ color: '#a78bfa' }}>Acme\AwesomePlugin</code>) so it can't collide with anyone else's SDK copy on the same WP site.</li>
-          <li>You've created the product on <Link href="/admin/products" style={{ color: '#a78bfa' }}>/admin/products</Link> and know its slug — that's the <code style={{ color: '#a78bfa' }}>product_slug</code> the SDK will send.</li>
-        </ol>
-      </Card>
-
-      <Card title="Step 1 — Get the SDK files into your plugin" subtitle="Easiest: download the zip below and unpack it inside your plugin. Works on every OS.">
-        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 12px', lineHeight: 1.6 }}>
-          Download the zip and extract it into <code style={{ color: '#a78bfa' }}>your-plugin/includes/</code>. The zip already contains a top-level <code style={{ color: '#a78bfa' }}>licenser-sdk/</code> folder with the correct internal layout, so after extracting you'll have <code style={{ color: '#a78bfa' }}>your-plugin/includes/licenser-sdk/</code> with everything in place.
-        </p>
-        <p style={{ margin: '0 0 12px' }}>
-          <a
-            href="/admin/sdk/download"
-            style={{
-              display: 'inline-block',
-              background: '#7c3aed',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 14px',
-              borderRadius: 6,
-              textDecoration: 'none',
-            }}
-          >
-            ⬇ Download licenser-sdk-php.zip
-          </a>
-          <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 10 }}>
-            Built on demand from the current <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/</code> source.
-          </span>
-        </p>
-        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
-          After extracting, your plugin tree should look like this:
-        </p>
-        {code(`acme-awesome-plugin/
-├── awesome-plugin.php       ← you'll edit this in Step 3
-└── includes/
-    └── licenser-sdk/
-        ├── SDK.php
-        ├── Client.php
-        ├── Cache.php
-        ├── Config.php
-        ├── Cron.php
-        ├── Updater.php
-        ├── AdminUI.php
-        ├── FeedbackModal.php
-        └── scripts/
-            └── setup.php`)}
-        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-          If you'd rather copy manually from <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/</code> on disk: take the 8 <code style={{ color: '#a78bfa' }}>*.php</code> files plus <code style={{ color: '#a78bfa' }}>README.md</code> plus <code style={{ color: '#a78bfa' }}>scripts/setup.php</code>. Skip <code style={{ color: '#a78bfa' }}>composer.json</code>, <code style={{ color: '#a78bfa' }}>LICENSE</code>, <code style={{ color: '#a78bfa' }}>scripts/build-release.php</code>, and <code style={{ color: '#a78bfa' }}>scripts/install-sdk.sh</code> — those are SDK-repo metadata.
+      <Card title="Before you start" subtitle="One prerequisite.">
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+          Create your product on <Link href="/admin/products" style={{ color: '#a78bfa' }}>/admin/products</Link> and note its slug — that's the <code style={{ color: '#a78bfa' }}>product_slug</code> you'll enter below.
         </p>
       </Card>
 
-      <Card title="Step 2 — Rewrite the namespace" subtitle="One command. Replaces __LICENSER_NAMESPACE__ everywhere so this copy of the SDK is isolated from any other plugin's copy.">
-        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
-          From your plugin's root (the dir containing <code style={{ color: '#a78bfa' }}>awesome-plugin.php</code>):
-        </p>
-        {code('php includes/licenser-sdk/scripts/setup.php --namespace="Acme\\\\AwesomePlugin"')}
-        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-          The script appends <code style={{ color: '#a78bfa' }}>\Licenser</code> automatically, so the SDK ends up as <code style={{ color: '#a78bfa' }}>Acme\AwesomePlugin\Licenser\SDK</code>, <code style={{ color: '#a78bfa' }}>Acme\AwesomePlugin\Licenser\Client</code>, etc. Pass the parent only. Backslashes need to be doubled (<code style={{ color: '#a78bfa' }}>\\</code>) so the shell doesn't eat them. The script is idempotent — safe to re-run.
-        </p>
+      <Card title="Configure & install" subtitle="Fill in the four fields, then follow the two numbered actions inside.">
+        <WpInstallForm base={base} />
       </Card>
 
-      <Card title="Step 3 — Wire it up in your main plugin file" subtitle="Paste this SDK::init() call near the top of awesome-plugin.php (after the plugin header comment).">
-        {code(`<?php
-/**
- * Plugin Name: Awesome Plugin
- * Version: 1.0.0
- */
-
-require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
-
-\\Acme\\AwesomePlugin\\Licenser\\SDK::init([
-    // Required — these six keys are all validated in Config.php and will wp_die() if missing.
-    'server_url'   => '${base}',                                  // where this licenser-platform lives
-    'product_slug' => 'awesome-plugin',                           // matches the slug on /admin/products
-    'plugin_file'  => __FILE__,                                   // used for the WP updater hooks
-    'plugin_slug'  => 'acme-awesome-plugin/awesome-plugin.php',   // dir-name/main-file.php — how WP identifies your plugin
-    'version'      => '1.0.0',                                    // keep this in sync with the Plugin Header above
-    'option_key'   => 'awesome_plugin_license',                   // unique per plugin — avoids WP option collisions
-]);
-
-// ... rest of your plugin code ...`)}
-        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-          The API is static — there's no <code style={{ color: '#a78bfa' }}>new SDK(...)</code> instance to keep around. <code style={{ color: '#a78bfa' }}>SDK::init()</code> registers every hook on first call and is idempotent. Later, anywhere in your plugin: <code style={{ color: '#a78bfa' }}>\\Acme\\AwesomePlugin\\Licenser\\SDK::is_valid()</code> returns a bool, and <code style={{ color: '#a78bfa' }}>SDK::client()</code> gives you the Client for advanced ops (manual activate/deactivate/refresh).
-        </p>
-      </Card>
-
-      <Card title="Step 4 — Activate and verify" subtitle="Sanity-check the install end-to-end.">
+      <Card title="Activate &amp; verify" subtitle="Sanity-check end-to-end.">
         <ol style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8, margin: '0 0 0 18px', padding: 0 }}>
           <li>Activate the plugin in WordPress (Plugins → Activate).</li>
-          <li>Go to Settings → License (or whatever <code style={{ color: '#a78bfa' }}>menu_parent</code> you configured). You should see the SDK's license entry UI.</li>
+          <li>Find the License page — it's under Settings by default, or under your plugin's top-level menu if you set <code style={{ color: '#a78bfa' }}>menu_parent</code>.</li>
           <li>Paste a key from <Link href="/admin/licenses" style={{ color: '#a78bfa' }}>/admin/licenses</Link> (or generate one for this product) and click Activate.</li>
           <li>You should see a green "Active" badge. Confirm an activation row appeared on <Link href="/admin/activations" style={{ color: '#a78bfa' }}>/admin/activations</Link> for this site's domain.</li>
         </ol>
       </Card>
 
-      <Card title="Optional — one-shot install on macOS/Linux" subtitle="Equivalent to Steps 1 + 2 in a single command. Skip this if you used the steps above.">
-        {code(`# from packages/licenser-sdk-php/
-./scripts/install-sdk.sh \\
-  ../../../acme-awesome-plugin/includes/licenser-sdk \\
-  'Acme\\\\AwesomePlugin'`)}
+      <Card title="Nesting License under your plugin's own menu" subtitle="Two ways, depending on whether your plugin already has a top-level menu.">
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
+          <strong>If your plugin already calls <code style={{ color: '#a78bfa' }}>add_menu_page()</code></strong> to register a top-level menu (e.g. with slug <code style={{ color: '#a78bfa' }}>my-plugin</code>), just set <code style={{ color: '#a78bfa' }}>menu_parent</code> in the form above to that slug. The License page will appear as a submenu.
+        </p>
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
+          <strong>If your plugin doesn't have a top-level menu yet</strong>, add one — minimal example:
+        </p>
+        {code(`add_action('admin_menu', function () {
+    add_menu_page(
+        'My Plugin',                    // page title
+        'My Plugin',                    // menu label
+        'manage_options',               // capability
+        'my-plugin',                    // menu slug ← pass this as 'menu_parent'
+        '__return_null',                // top-level page renderer (or your own)
+        'dashicons-admin-generic',      // icon
+        65                              // position
+    );
+}, 9);  // priority 9 so this runs before the SDK's admin_menu hook (default 10)`)}
         <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-          Output is byte-identical to the manual steps. Requires <code style={{ color: '#a78bfa' }}>bash</code> + <code style={{ color: '#a78bfa' }}>perl</code> (standard on macOS/Linux, available via Git Bash on Windows). Then jump to Step 3.
+          The priority &lt; 10 matters: the SDK's <code style={{ color: '#a78bfa' }}>AdminUI</code> calls <code style={{ color: '#a78bfa' }}>add_submenu_page()</code> at the default priority 10, so the parent menu needs to exist first.
+        </p>
+      </Card>
+
+      <Card title="Power-user CLI path" subtitle="For when you can't open /admin/sdk (offline / CI / scripted installs).">
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
+          The download endpoint still works without the <code style={{ color: '#a78bfa' }}>?namespace=</code> param — you get the un-rewritten zip with <code style={{ color: '#a78bfa' }}>__LICENSER_NAMESPACE__</code> placeholders, plus the original <code style={{ color: '#a78bfa' }}>scripts/setup.php</code>. Extract, then run:
+        </p>
+        {code('php includes/licenser-sdk/scripts/setup.php --namespace="Acme\\\\AwesomePlugin"')}
+        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
+          Bash users double the backslash (<code style={{ color: '#a78bfa' }}>\\</code>); PowerShell users use a single backslash. Or — on macOS/Linux — use the one-shot helper inside the repo at <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/scripts/install-sdk.sh</code>.
         </p>
       </Card>
 

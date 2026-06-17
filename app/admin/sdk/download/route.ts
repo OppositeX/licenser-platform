@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -20,7 +21,31 @@ const ROOT_FILES = [
 
 const SCRIPT_FILES = ['setup.php'];
 
-export async function GET() {
+// Same shape as scripts/setup.php's regex: PascalCase segments joined by `\`.
+// e.g. `MyPlugin`, `Acme\AwesomePlugin`, `Gloo\WcComplimentaryProducts`.
+const NAMESPACE_RE = /^[A-Z][A-Za-z0-9_]*(?:\\[A-Z][A-Za-z0-9_]*)*$/;
+
+const PLACEHOLDER = '__LICENSER_NAMESPACE__';
+
+function rewriteIfText(filename: string, buf: Buffer, namespace: string | null): Buffer | string {
+  if (!namespace) return buf;
+  if (!/\.(php|md)$/i.test(filename)) return buf;
+  return buf.toString('utf8').replaceAll(PLACEHOLDER, namespace);
+}
+
+export async function GET(req: NextRequest) {
+  const raw = req.nextUrl.searchParams.get('namespace');
+  let namespace: string | null = null;
+  if (raw) {
+    if (!NAMESPACE_RE.test(raw)) {
+      return Response.json(
+        { error: 'invalid-namespace', message: 'Must be PascalCase, optionally with \\ between segments, e.g. Acme\\AwesomePlugin.' },
+        { status: 400 },
+      );
+    }
+    namespace = raw;
+  }
+
   const zip = new JSZip();
   const folder = zip.folder('licenser-sdk');
   const scripts = folder?.folder('scripts');
@@ -30,20 +55,23 @@ export async function GET() {
 
   for (const f of ROOT_FILES) {
     const buf = await readFile(path.join(SDK_DIR, f));
-    folder.file(f, buf);
+    folder.file(f, rewriteIfText(f, buf, namespace));
   }
   for (const f of SCRIPT_FILES) {
     const buf = await readFile(path.join(SDK_DIR, 'scripts', f));
-    scripts.file(f, buf);
+    scripts.file(f, rewriteIfText(f, buf, namespace));
   }
 
   const bytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  const filename = namespace
+    ? `licenser-sdk-${namespace.replaceAll('\\', '-').toLowerCase()}.zip`
+    : 'licenser-sdk-php.zip';
 
   return new Response(bytes as unknown as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': 'attachment; filename="licenser-sdk-php.zip"',
+      'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length': String(bytes.length),
       'Cache-Control': 'no-store',
     },

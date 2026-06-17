@@ -72,11 +72,13 @@ require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
     'server_url'   => 'https://licenser-platform.vercel.app',
     'product_slug' => 'your-plugin-slug',
     'plugin_file'  => __FILE__,
-    'plugin_slug'  => 'my-plugin/my-plugin.php',
-    'version'      => '1.0.0',
     'option_key'   => 'my_plugin_license',  // unique per plugin — avoids option collisions
 ]);
 ```
+
+Only four required keys. `plugin_slug` and `version` are auto-derived from `plugin_file`
+(via `plugin_basename()` and the plugin header's `Version:` line). Pass them explicitly
+only if you need to override the defaults.
 
 The API is **static** — `SDK::init()` registers every WP hook on first call and is idempotent.
 There is no `new SDK(...)` constructor and no `$sdk->boot()` method.
@@ -92,26 +94,40 @@ namespace per-plugin (e.g. to `MyPlugin\Licenser`) makes every copy isolated.
 
 ```php
 \MyPlugin\Licenser\SDK::init([
-    // Required — Config.php wp_die()s if any of these are missing
+    // Required (4 keys) — Config.php wp_die()s if any of these are missing
     'server_url'   => 'https://licenser-platform.vercel.app',
     'product_slug' => 'canvas-studio',
     'plugin_file'  => __FILE__,
-    'plugin_slug'  => 'canvas-studio/canvas-studio.php',
-    'version'      => '1.4.2',
     'option_key'   => 'canvas_studio_license',  // unique per plugin
 
-    // Recommended (must be unique to avoid conflicts)
+    // Auto-derived from plugin_file — pass explicitly only to override
+    'plugin_slug'  => 'canvas-studio/canvas-studio.php',  // plugin_basename($plugin_file)
+    'version'      => '1.4.2',                            // read from Plugin Header
+
+    // Recommended (must be unique across plugins on the same site)
     'js_global'    => 'CanvasStudioLicenser',
     'css_class'    => 'canvas-studio-licenser',
 
-    // Optional
+    // Optional UX
     'admin_label'  => 'Canvas Studio License',
+    'menu_parent'  => 'options-general.php',  // or your plugin's top-level menu slug
     'cache_hours'  => 12,    // 1-24
     'grace_days'   => 7,
     'feedback'     => true,
-    'menu_parent'  => 'options-general.php',
     'cap'          => 'manage_options',
 ]);
+```
+
+### Nesting License under your plugin's menu
+
+If your plugin already calls `add_menu_page()` with slug `my-plugin`, just set
+`'menu_parent' => 'my-plugin'`. If it doesn't, register one at priority 9 so the
+SDK's `admin_menu` hook (priority 10) can attach to it:
+
+```php
+add_action('admin_menu', function () {
+    add_menu_page('My Plugin', 'My Plugin', 'manage_options', 'my-plugin', '__return_null', 'dashicons-admin-generic', 65);
+}, 9);
 ```
 
 ## Public API

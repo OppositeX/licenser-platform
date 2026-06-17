@@ -8,15 +8,19 @@
  *
  * Public API:
  *   __LICENSER_NAMESPACE__\Licenser\SDK::init([
+ *     // Required (4 keys):
+ *     'server_url'    => 'https://licenser-platform.vercel.app',
  *     'product_slug'  => 'canvas-studio',
  *     'plugin_file'   => __FILE__,
- *     'plugin_slug'   => 'canvas-studio/canvas-studio.php',
- *     'version'       => '1.4.2',
- *     'server_url'    => 'https://licenser-platform.vercel.app',
  *     'option_key'    => 'canvas_studio_license',     // unique per plugin
- *     'js_global'     => 'CanvasStudioLicenser',      // unique window global
- *     'css_class'     => 'canvas-studio-licenser',    // unique CSS namespace
+ *     // Optional — auto-derived from plugin_file if omitted:
+ *     'plugin_slug'   => 'canvas-studio/canvas-studio.php',  // plugin_basename($plugin_file)
+ *     'version'       => '1.4.2',                            // read from Plugin Header
+ *     // Optional UX/isolation:
+ *     'menu_parent'   => 'options-general.php',       // or your plugin's top-level menu slug
  *     'admin_label'   => 'Canvas Studio License',
+ *     'js_global'     => 'CanvasStudioLicenser',
+ *     'css_class'     => 'canvas-studio-licenser',
  *     'cache_hours'   => 12,
  *     'grace_days'    => 7,
  *     'feedback'      => true,

@@ -177,11 +177,13 @@ class AdminUI {
 	}
 
 	private function page_url(): string {
-		$cfg = $this->client->config();
-		return add_query_arg(
-			array( 'page' => $cfg->option_key . '_license' ),
-			admin_url( $cfg->menu_parent )
-		);
+		$cfg  = $this->client->config();
+		$page = $cfg->option_key . '_license';
+		// Built-in WP parents are .php files (options-general.php, tools.php, etc.) —
+		// route directly. Custom top-level menu slugs registered via add_menu_page()
+		// resolve via /wp-admin/admin.php?page=<submenu-slug>.
+		$base = ( substr( $cfg->menu_parent, -4 ) === '.php' ) ? $cfg->menu_parent : 'admin.php';
+		return add_query_arg( array( 'page' => $page ), admin_url( $base ) );
 	}
 
 	private function mask_key( string $key ): string {

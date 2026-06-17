@@ -96,9 +96,9 @@ $installMd = <<<MD
        'server_url'   => 'https://licenser-platform.vercel.app',
        'product_slug' => 'your-plugin-slug',
        'plugin_file'  => __FILE__,
-       'plugin_slug'  => 'your-plugin/your-plugin.php',
-       'version'      => '1.0.0',
        'option_key'   => 'your_plugin_license',
+       // plugin_slug + version are auto-derived from plugin_file; pass them only to override.
+       // 'menu_parent' => 'your-plugin-menu-slug', // optional — nest under your top-level menu
    ]);
    ```
 
