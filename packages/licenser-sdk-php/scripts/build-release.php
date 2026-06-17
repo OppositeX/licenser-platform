@@ -66,11 +66,11 @@ foreach ($includes as $f) {
     $added++;
 }
 
-// Include setup.php at the root of the archive (next to the SDK files) so
-// consumers can run it from inside `licenser-sdk/`.
+// Include setup.php under scripts/ so the zip layout matches install-sdk.sh
+// and the docs (consumers run `php includes/licenser-sdk/scripts/setup.php`).
 $setup = __DIR__ . '/setup.php';
 if (is_file($setup)) {
-    $zip->addFile($setup, 'licenser-sdk/setup.php');
+    $zip->addFile($setup, 'licenser-sdk/scripts/setup.php');
     $added++;
 }
 
@@ -82,7 +82,7 @@ $installMd = <<<MD
 2. Run the namespace rewriter from your plugin root:
 
    ```
-   php includes/licenser-sdk/setup.php --namespace=MyPlugin
+   php includes/licenser-sdk/scripts/setup.php --namespace=MyPlugin
    ```
 
    Replace `MyPlugin` with your plugin's PHP namespace prefix. The script
