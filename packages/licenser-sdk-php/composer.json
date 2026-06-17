@@ -1,0 +1,15 @@
+{
+    "name": "gloo/licenser-sdk-php",
+    "description": "Drop-in PHP SDK for embedding Licenser-platform licensing, updates, and feedback into a WordPress plugin.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["licensing", "license-key", "wordpress", "wp-plugin", "licenser"],
+    "homepage": "https://licenser-platform.vercel.app",
+    "require": {
+        "php": ">=7.4"
+    },
+    "support": {
+        "source": "https://github.com/OppositeX/licenser-platform/tree/main/packages/licenser-sdk-php",
+        "issues": "https://github.com/OppositeX/licenser-platform/issues"
+    }
+}

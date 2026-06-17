@@ -96,13 +96,50 @@ function App() {
 
       <h2 id="wp" style={{ ...ui.h2, marginTop: 32, color: '#f1f5f9', fontSize: 22 }}>WordPress — licenser-sdk-php</h2>
 
-      <Card title="Install (drop-in zip)" subtitle="Recommended for plugin authors who don't use Composer.">
+      <Card title="Where the source lives" subtitle="Vendored into this repo at packages/licenser-sdk-php/ — sibling to @gloo/licenser-client.">
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px', lineHeight: 1.6 }}>
+          Eight PHP files at the package root
+          (<code style={{ color: '#a78bfa' }}>SDK.php</code>, <code style={{ color: '#a78bfa' }}>Client.php</code>,
+          <code style={{ color: '#a78bfa' }}>Cache.php</code>, <code style={{ color: '#a78bfa' }}>Config.php</code>,
+          <code style={{ color: '#a78bfa' }}>Cron.php</code>, <code style={{ color: '#a78bfa' }}>Updater.php</code>,
+          <code style={{ color: '#a78bfa' }}>AdminUI.php</code>, <code style={{ color: '#a78bfa' }}>FeedbackModal.php</code>)
+          plus <code style={{ color: '#a78bfa' }}>scripts/setup.php</code> (namespace rewriter),
+          {' '}<code style={{ color: '#a78bfa' }}>scripts/build-release.php</code> (zip builder), and
+          {' '}<code style={{ color: '#a78bfa' }}>scripts/install-sdk.sh</code> (one-shot copy + rewrite).
+        </p>
+      </Card>
+
+      <Card title="Install (one-shot, recommended)" subtitle="Copies the SDK into your plugin and rewrites the namespace in a single command. macOS/Linux.">
+        {code(`# from packages/licenser-sdk-php/
+./scripts/install-sdk.sh \\
+  ../../../my-plugin/includes/licenser-sdk \\
+  'MyVendor\\\\MyPlugin'`)}
+        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
+          The namespace argument gets appended with <code style={{ color: '#a78bfa' }}>\\Licenser</code> automatically — pass the parent prefix only. Backslashes must be shell-escaped (<code style={{ color: '#a78bfa' }}>\\\\</code>). Output is byte-identical to the release zip below.
+        </p>
+      </Card>
+
+      <Card title="Install (manual, two steps)" subtitle="Equivalent to the helper — useful on Windows or when you want to inspect the rewrite first.">
         <ol style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8, margin: '0 0 0 18px', padding: 0 }}>
-          <li>Download <code style={{ color: '#a78bfa' }}>licenser-sdk-&lt;version&gt;.zip</code> from GitHub releases.</li>
-          <li>Unzip into <code style={{ color: '#a78bfa' }}>your-plugin/includes/licenser-sdk/</code>.</li>
+          <li>Copy every <code style={{ color: '#a78bfa' }}>*.php</code> file from <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/</code> plus <code style={{ color: '#a78bfa' }}>scripts/setup.php</code> into <code style={{ color: '#a78bfa' }}>your-plugin/includes/licenser-sdk/</code>.</li>
           <li>Run the namespace rewriter once (replaces <code style={{ color: '#a78bfa' }}>__LICENSER_NAMESPACE__</code> with your plugin's prefix):</li>
         </ol>
         {code('php includes/licenser-sdk/scripts/setup.php --namespace=MyPlugin')}
+      </Card>
+
+      <Card title="Build & publish a release zip" subtitle="One-time work to make installs a literal download-and-unzip.">
+        {code(`# from packages/licenser-sdk-php/
+php scripts/build-release.php --version=1.0.0
+# → packages/licenser-sdk-php/dist/licenser-sdk-1.0.0.zip
+
+# Then attach the zip to a GitHub release:
+gh release create wp-sdk-v1.0.0 \\
+  packages/licenser-sdk-php/dist/licenser-sdk-1.0.0.zip \\
+  --title "WP SDK v1.0.0" \\
+  --notes "Drop-in licenser-sdk-php for WordPress plugins."`)}
+        <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
+          Consumers unzip the result into <code style={{ color: '#a78bfa' }}>includes/licenser-sdk/</code> and run <code style={{ color: '#a78bfa' }}>scripts/setup.php</code> from inside the zip — same flow as the install scripts above. Once a release exists, that flow becomes a download link instead of a clone.
+        </p>
       </Card>
 
       <Card title="Wire it up">
@@ -154,7 +191,8 @@ GET  ${base}/api/v1/health            Service health`)}
         <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px' }}><strong>Can the JS SDK be used outside React?</strong> Yes — <code style={{ color: '#a78bfa' }}>LicenserClient</code> is the core. The React hook is an optional subpath import.</p>
         <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px' }}><strong>What's the cache TTL?</strong> JS hook: 1-hour revalidate + on focus. PHP SDK: 12 hours, refreshed by twice-daily cron.</p>
         <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px' }}><strong>How are rate limits enforced?</strong> Per-IP on the platform, configurable on the Settings page. Default 60 req/min.</p>
-        <p style={{ color: '#cbd5e1', fontSize: 13, margin: 0 }}><strong>Composer support?</strong> Not yet — the drop-in zip works for ~95% of WP plugin devs. Composer + Strauss is a planned phase-2 add.</p>
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: '0 0 8px' }}><strong>Where do I get the SDK?</strong> Today: clone this repo and run the install script at <code style={{ color: '#a78bfa' }}>packages/licenser-sdk-php/scripts/install-sdk.sh</code> (see the Install cards above). Once someone runs the <code style={{ color: '#a78bfa' }}>build-release.php</code> step and publishes a GitHub release, this becomes a download link.</p>
+        <p style={{ color: '#cbd5e1', fontSize: 13, margin: 0 }}><strong>Composer support?</strong> Not yet. The drop-in copy + namespace-rewrite flow is the only supported path. Composer + Strauss is a planned phase-2 add.</p>
       </Card>
     </AdminShell>
   );
