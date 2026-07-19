@@ -68,7 +68,9 @@ export async function POST(req: Request) {
   const rlKey = `v2:${ip || 'noip'}:${key.slice(0, 12)}`;
   const rl = rateLimit(rlKey, 60, 60_000);
   if (!rl.ok) {
-    return json({ active: false, reason: 'UNKNOWN_KEY', expires_at: null }, 429, {
+    // Distinct reason so a throttled-but-valid client does NOT mistake this
+    // for a bad license and disable features. HTTP 429 + Retry-After.
+    return json({ active: false, reason: 'RATE_LIMITED', expires_at: null }, 429, {
       'Retry-After': String(Math.ceil(rl.resetIn / 1000)),
     });
   }

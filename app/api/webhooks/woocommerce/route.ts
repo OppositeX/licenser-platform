@@ -21,8 +21,16 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/licenser/db';
 import { issueLicense, setLicenseStatusByWooSub, setLicenseStatusByWooOrder } from '@/lib/licenser/issuance';
+import { getSetting } from '@/lib/licenser/settings';
 import { sendEmail } from '@/lib/email';
 import { renderLicenseIssuedEmail } from '@/lib/email/templates/license-issued';
+
+/** Whole days between now and an ISO timestamp, clamped at 0. */
+function daysFromNow(iso: string | null): number {
+  if (!iso) return 0;
+  const ms = new Date(iso).getTime() - Date.now();
+  return ms > 0 ? Math.ceil(ms / 86_400_000) : 0;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -135,7 +143,7 @@ export async function POST(req: Request) {
         licenseKey: issued.license.key,
         planName: issued.plan?.name ?? 'License',
         expiresAt: issued.license.expires_at,
-        trialDays: trialEnd ? 14 : 0,
+        trialDays: daysFromNow(trialEnd),
       });
       const sent = await sendEmail({ to: email, subject: tmpl.subject, html: tmpl.html, text: tmpl.text, tag: 'license-issued' });
       await db().from('events').insert({
@@ -151,17 +159,57 @@ export async function POST(req: Request) {
 
   if (topic === 'subscription.updated') {
     if (!orderOrSubId) return NextResponse.json({ error: 'missing_id' }, { status: 400 });
-    const nextPayment = (payload as WcSubscription).next_payment_date_gmt
-      ? new Date((payload as WcSubscription).next_payment_date_gmt + 'Z').toISOString()
+    const sub = payload as WcSubscription;
+    const wcStatus = (sub.status ?? '').toLowerCase();
+    const nextPayment = sub.next_payment_date_gmt
+      ? new Date(sub.next_payment_date_gmt + 'Z').toISOString()
       : null;
-    // Renew expires_at; status -> active (handles trial → paid transition).
+    const endDate = sub.end_date_gmt
+      ? new Date(sub.end_date_gmt + 'Z').toISOString()
+      : null;
+
+    // Map the WooCommerce subscription status to license state. Previously
+    // this blindly set status=active on every update, which reactivated
+    // lapsed/failed subscriptions — a revenue leak. Respect the status.
+    const patch: { status?: string; expires_at?: string | null; grace_until?: string | null } = {};
+    switch (wcStatus) {
+      case 'active':
+        // Paid & current (also covers trial → paid). Renew and clear grace.
+        patch.status = 'active';
+        patch.expires_at = nextPayment;
+        patch.grace_until = null;
+        break;
+      case 'on-hold':
+      case 'pending-cancel': {
+        // Failed payment or wind-down: keep working through a grace window,
+        // then lapse. Status stays 'active' but bounded by grace_until.
+        const graceDays = Math.max(0, Number(await getSetting('woo_grace_days')) || 0);
+        const grace = new Date(Date.now() + graceDays * 86_400_000).toISOString();
+        patch.status = 'active';
+        patch.expires_at = new Date().toISOString();
+        patch.grace_until = grace;
+        break;
+      }
+      case 'cancelled':
+        // Access until the paid period ends; a later subscription.cancelled
+        // topic performs the hard revoke. Only cap the expiry here.
+        if (endDate) patch.expires_at = endDate;
+        break;
+      case 'expired':
+        patch.status = 'expired';
+        break;
+      default:
+        // pending / switched / unknown — no state change.
+        return NextResponse.json({ ok: true, updated: 0, ignored_status: wcStatus || null });
+    }
+
     const { data, error } = await db()
       .from('licenses')
-      .update({ status: 'active', expires_at: nextPayment })
+      .update(patch)
       .eq('woo_subscription_id', orderOrSubId)
       .select('id');
     if (error) return NextResponse.json({ error: 'db_error', message: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, updated: data?.length ?? 0 });
+    return NextResponse.json({ ok: true, updated: data?.length ?? 0, applied_status: wcStatus });
   }
 
   if (topic === 'subscription.cancelled') {
