@@ -7,7 +7,7 @@ import { errorResponse } from '@/lib/licenser/errors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function handle(licenseKey: string, rawDomain: string, currentVersion: string | null) {
+async function handle(origin: string, licenseKey: string, rawDomain: string, currentVersion: string | null) {
   const license = await findLicenseByKey(licenseKey);
   if (!license) return errorResponse(404, 'licenser_invalid_key', 'Invalid license key.');
   const domain = normalizeDomain(rawDomain);
@@ -23,26 +23,43 @@ async function handle(licenseKey: string, rawDomain: string, currentVersion: str
     .limit(1).maybeSingle();
 
   if (!release) {
-    return NextResponse.json({ has_update: false, entitled, current_version: currentVersion, latest: null });
+    return NextResponse.json({
+      has_update: false, entitled, new_version: null, package: null,
+      current_version: currentVersion, latest: null,
+    });
   }
 
+  const hasUpdate = !!currentVersion && release.version !== currentVersion;
+
+  // Mint a scoped, short-TTL download token and expose it as a `package` URL
+  // that the WP SDK (and WP core) can fetch directly. Only when entitled.
+  let packageUrl: string | null = null;
   let downloadToken: string | null = null;
   if (entitled) {
     downloadToken = issueToken(
-      { license_id: license.id, product_id: license.product_id, version: release.version, domain },
-      600
+      { license_id: license.id, product_id: license.product_id, version: release.version, domain, scope: 'download' },
+      600,
     );
+    packageUrl = `${origin}/api/v1/download?token=${encodeURIComponent(downloadToken)}`;
   }
-  const hasUpdate = !!currentVersion && release.version !== currentVersion;
 
   return NextResponse.json({
+    // Flat fields consumed by the WP SDK Updater (Updater.php reads these).
     has_update: hasUpdate,
     entitled,
+    new_version: release.version,
+    package: packageUrl,
+    tested: '',
+    requires: '',
+    requires_php: '',
+    changelog: release.changelog ?? '',
     current_version: currentVersion,
+    // Nested block kept for the platform/JS client and backward-compat.
     latest: {
       version: release.version,
       download_url: entitled ? release.download_url : null,
       download_token: downloadToken,
+      package: packageUrl,
       changelog: release.changelog,
       release_notes: release.release_notes,
       released_at: release.released_at,
@@ -57,7 +74,7 @@ export async function POST(req: Request) {
   const dom = String(body.domain ?? body.site_url ?? '');
   const ver = body.version ? String(body.version) : null;
   if (!key || !dom) return errorResponse(400, 'licenser_missing_params', 'license_key and domain are required');
-  return handle(key, dom, ver);
+  return handle(new URL(req.url).origin, key, dom, ver);
 }
 
 export async function GET(req: Request) {
@@ -66,5 +83,5 @@ export async function GET(req: Request) {
   const dom = u.searchParams.get('domain') ?? u.searchParams.get('site_url') ?? '';
   const ver = u.searchParams.get('version');
   if (!key || !dom) return errorResponse(400, 'licenser_missing_params', 'license_key and domain are required');
-  return handle(key, dom, ver);
+  return handle(u.origin, key, dom, ver);
 }

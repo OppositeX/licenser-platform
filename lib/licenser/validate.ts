@@ -129,17 +129,33 @@ export async function runValidate(input: ValidateInput): Promise<ValidateResult>
 }
 
 /**
- * Domain allowlist for CNVS-4 dev/preview flows. Mirrors cnvs-licenser's
- * built-in tolerances. Custom domains are NOT allowlisted here — they have
- * to go through the activate flow.
+ * Local-development domain bypass. These hosts skip the activation/seat check
+ * so a developer can validate against a real key without burning a seat.
+ *
+ * IMPORTANT: this is a DEV convenience, not a production tolerance. Previously
+ * every `*.vercel.app` host was allowlisted, which meant any valid key
+ * validated as fully-featured on unlimited preview deployments and never
+ * consumed a seat. That blanket is removed. Real deployments — including
+ * production Vercel domains — must go through /api/v1/activate.
+ *
+ * To re-open specific suffixes (e.g. a shared preview host) without a code
+ * change, set LICENSER_DEV_DOMAINS to a comma-separated suffix list, e.g.
+ * `LICENSER_DEV_DOMAINS=.previews.gloo.ooo,.vercel.app`.
  */
+function devDomainSuffixes(): string[] {
+  const extra = (process.env.LICENSER_DEV_DOMAINS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return ['.local', ...extra];
+}
+
 export function isAllowedDomain(domain: string): boolean {
   if (!domain) return false;
-  if (domain === 'localhost' || domain.startsWith('localhost:')) return true;
-  if (domain.endsWith('.vercel.app')) return true;
-  if (domain.endsWith('.local')) return true;     // covers Local-by-Flywheel hosts (cnvs.local)
-  if (domain === '127.0.0.1' || domain.startsWith('127.0.0.1:')) return true;
-  return false;
+  const d = domain.toLowerCase();
+  if (d === 'localhost' || d.startsWith('localhost:')) return true;
+  if (d === '127.0.0.1' || d.startsWith('127.0.0.1:')) return true;
+  return devDomainSuffixes().some((suffix) => d.endsWith(suffix));
 }
 
 export async function logValidation(

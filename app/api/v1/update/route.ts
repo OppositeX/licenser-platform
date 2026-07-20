@@ -32,11 +32,13 @@ export async function GET(req: Request) {
 
   let entitled = false;
   let token: string | null = null;
+  let packageUrl: string | null = null;
   if (licenseKey) {
     const lic = await findLicenseByKey(licenseKey);
     entitled = !!lic && lic.product_id === product.id && isLicenseActive(lic);
     if (entitled && lic) {
-      token = issueToken({ license_id: lic.id, product_id: product.id, version: release.version }, 600);
+      token = issueToken({ license_id: lic.id, product_id: product.id, version: release.version, scope: 'download' }, 600);
+      packageUrl = `${u.origin}/api/v1/download?token=${encodeURIComponent(token)}`;
     }
   }
 
@@ -44,10 +46,12 @@ export async function GET(req: Request) {
     ok: true,
     product: { slug: product.slug, name: product.name },
     latest_version: release.version,
+    new_version: release.version,
     current_version: current || null,
     has_update: !!current && release.version !== current,
     entitled,
     download_url: entitled ? release.download_url : null,
+    package: packageUrl,
     download_token: token,
     changelog: release.changelog,
     released_at: release.released_at,
