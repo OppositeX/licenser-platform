@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "licenser": {
+      "command": "node",
+      "args": ["packages/licenser-mcp/dist/index.js"],
+      "env": {
+        "LICENSER_SUPABASE_URL": "${LICENSER_SUPABASE_URL}",
+        "LICENSER_SUPABASE_SERVICE_ROLE_KEY": "${LICENSER_SUPABASE_SERVICE_ROLE_KEY}",
+        "LICENSER_BASE_URL": "https://licenser-platform.vercel.app"
+      }
+    }
+  }
+}
