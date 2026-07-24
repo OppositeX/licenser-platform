@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, findLicenseByKey, findActivation, logEvent } from '@/lib/licenser/db';
 import { normalizeDomain } from '@/lib/licenser/domain';
 import { errorResponse } from '@/lib/licenser/errors';
+import { dispatchOutbound } from '@/lib/licenser/outbound';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
 
   await db().from('activations').update({ status: 'deactivated' }).eq('id', activation.id);
   await logEvent('deactivate', { domain, reason: body.reason ?? null, message: body.message ?? null }, { license_id: license.id, product_id: license.product_id });
+  await dispatchOutbound('license.deactivated', { license_id: license.id, product_id: license.product_id, data: { domain } });
 
   return NextResponse.json({ deactivated: true, activation_id: activation.id, license_id: license.id });
 }

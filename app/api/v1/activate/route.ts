@@ -6,6 +6,7 @@ import {
 } from '@/lib/licenser/db';
 import { normalizeDomain } from '@/lib/licenser/domain';
 import { errorResponse, readClientIp } from '@/lib/licenser/errors';
+import { dispatchOutbound } from '@/lib/licenser/outbound';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
   }
 
   await logEvent('activate', { domain, version }, { license_id: license.id, product_id: license.product_id });
+  await dispatchOutbound('license.activated', { license_id: license.id, product_id: license.product_id, data: { domain } });
 
   return NextResponse.json({
     license: await publicLicenseView(license),
