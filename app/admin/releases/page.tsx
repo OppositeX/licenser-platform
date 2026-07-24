@@ -15,6 +15,8 @@ interface ReleaseRow {
   changelog: string | null;
   release_notes: string | null;
   is_latest: boolean;
+  channel: string;
+  yanked: boolean;
   released_at: string;
 }
 
@@ -24,9 +26,12 @@ async function upsertRelease(formData: FormData) {
   const product_id = String(formData.get('product_id') ?? '');
   const version = String(formData.get('version') ?? '').trim();
   if (!product_id || !version) redirect('/admin/releases?error=Product%20and%20version%20required');
+  const channel = String(formData.get('channel') ?? 'stable');
   const row = {
     product_id,
     version,
+    channel: ['stable', 'beta', 'rc'].includes(channel) ? channel : 'stable',
+    yanked: formData.get('yanked') === 'on',
     download_url: String(formData.get('download_url') ?? '').trim() || null,
     changelog: String(formData.get('changelog') ?? '').trim() || null,
     release_notes: String(formData.get('release_notes') ?? '').trim() || null,
@@ -40,11 +45,21 @@ async function upsertRelease(formData: FormData) {
   } else {
     await db().from('product_releases').insert(row);
   }
-  if (row.is_latest) {
+  if (row.is_latest && !row.yanked && row.channel === 'stable') {
     await db().from('products').update({ version: row.version }).eq('id', product_id);
   }
   revalidatePath('/admin/releases');
   redirect(`/admin/releases?product=${product_id}&ok=Release%20saved`);
+}
+
+async function toggleYank(formData: FormData) {
+  'use server';
+  const id = String(formData.get('id') ?? '');
+  const product_id = String(formData.get('product_id') ?? '');
+  const yanked = formData.get('yanked') === '1';
+  if (id) await db().from('product_releases').update({ yanked: !yanked }).eq('id', id);
+  revalidatePath('/admin/releases');
+  redirect(`/admin/releases?product=${product_id}&ok=${yanked ? 'Release%20restored' : 'Release%20yanked%20(rolled%20back)'}`);
 }
 
 async function deleteRelease(formData: FormData) {
@@ -100,14 +115,23 @@ export default async function ReleasesPage(
           {releases.map((r) => (
             <div key={r.id} style={ui.row}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>
-                  v{r.version} {r.is_latest && <span style={{ color: '#86efac', fontSize: 11, border: '1px solid #14532d', padding: '1px 6px', borderRadius: 4, marginLeft: 6 }}>latest</span>}
+                <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  v{r.version}
+                  {r.channel !== 'stable' && <span style={{ color: '#fcd34d', fontSize: 11, border: '1px solid #78350f', padding: '1px 6px', borderRadius: 4 }}>{r.channel}</span>}
+                  {r.is_latest && !r.yanked && <span style={{ color: '#86efac', fontSize: 11, border: '1px solid #14532d', padding: '1px 6px', borderRadius: 4 }}>latest</span>}
+                  {r.yanked && <span style={{ color: '#fda4af', fontSize: 11, border: '1px solid #7f1d1d', padding: '1px 6px', borderRadius: 4 }}>yanked</span>}
                 </div>
                 <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
                   {new Date(r.released_at).toLocaleString()}
                   {r.download_url && <> · <a href={r.download_url} target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>download</a></>}
                 </div>
               </div>
+              <form action={toggleYank}>
+                <input type="hidden" name="id" value={r.id} />
+                <input type="hidden" name="product_id" value={productId} />
+                <input type="hidden" name="yanked" value={r.yanked ? '1' : '0'} />
+                <button style={r.yanked ? ui.btnGhost : ui.btnWarn}>{r.yanked ? 'Restore' : 'Yank'}</button>
+              </form>
               <Link href={`/admin/releases?product=${productId}&edit=${r.id}`} style={ui.btnGhost}>Edit</Link>
               <form action={deleteRelease}>
                 <input type="hidden" name="id" value={r.id} />
@@ -129,6 +153,13 @@ export default async function ReleasesPage(
           {editing && <input type="hidden" name="id" value={editing.id} />}
           <input type="hidden" name="product_id" value={productId ?? ''} />
           <div><label style={ui.label}>Version *</label><input name="version" required defaultValue={editing?.version ?? ''} placeholder="1.4.2" style={ui.inp} /></div>
+          <div><label style={ui.label}>Channel</label>
+            <select name="channel" defaultValue={editing?.channel ?? 'stable'} style={ui.inp}>
+              <option value="stable">stable</option>
+              <option value="beta">beta</option>
+              <option value="rc">rc</option>
+            </select>
+          </div>
           <div><label style={ui.label}>Download URL</label><input name="download_url" type="url" defaultValue={editing?.download_url ?? ''} placeholder="https://…/v1.4.2.zip" style={ui.inp} /></div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={ui.label}>Release notes</label>
@@ -139,7 +170,10 @@ export default async function ReleasesPage(
             <textarea name="changelog" rows={6} defaultValue={editing?.changelog ?? ''} style={{ ...ui.inp, resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontSize: 13, gridColumn: '1 / -1' }}>
-            <input type="checkbox" name="is_latest" defaultChecked={editing?.is_latest ?? false} /> Mark as latest (updates product version)
+            <input type="checkbox" name="is_latest" defaultChecked={editing?.is_latest ?? false} /> Mark as latest (stable only — updates product version)
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontSize: 13, gridColumn: '1 / -1' }}>
+            <input type="checkbox" name="yanked" defaultChecked={editing?.yanked ?? false} /> Yanked (pulled — never served; clients fall back to the previous version)
           </label>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, marginTop: 8 }}>
             <button type="submit" style={ui.btn}>{editing ? 'Save release' : 'Add release'}</button>

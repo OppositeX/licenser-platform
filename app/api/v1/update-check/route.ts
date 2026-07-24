@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
-import { db, findLicenseByKey, findActivation, isLicenseActive } from '@/lib/licenser/db';
+import { findLicenseByKey, findActivation, isLicenseActive } from '@/lib/licenser/db';
 import { issue as issueToken } from '@/lib/licenser/signer';
 import { normalizeDomain } from '@/lib/licenser/domain';
+import { pickLatestRelease, normalizeChannel, type ReleaseChannel } from '@/lib/licenser/releases';
 import { errorResponse } from '@/lib/licenser/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function handle(origin: string, licenseKey: string, rawDomain: string, currentVersion: string | null) {
+async function handle(origin: string, licenseKey: string, rawDomain: string, currentVersion: string | null, channel: ReleaseChannel) {
   const license = await findLicenseByKey(licenseKey);
   if (!license) return errorResponse(404, 'licenser_invalid_key', 'Invalid license key.');
   const domain = normalizeDomain(rawDomain);
   const activation = domain ? await findActivation(license.id, domain) : null;
   const entitled = isLicenseActive(license) && !!activation && activation.status === 'active';
 
-  const { data: release } = await db()
-    .from('product_releases')
-    .select('version,download_url,changelog,release_notes,released_at,is_latest')
-    .eq('product_id', license.product_id)
-    .order('is_latest', { ascending: false })
-    .order('released_at', { ascending: false })
-    .limit(1).maybeSingle();
+  const release = await pickLatestRelease(license.product_id, channel);
 
   if (!release) {
     return NextResponse.json({
@@ -54,9 +49,11 @@ async function handle(origin: string, licenseKey: string, rawDomain: string, cur
     requires_php: '',
     changelog: release.changelog ?? '',
     current_version: currentVersion,
+    channel: release.channel,
     // Nested block kept for the platform/JS client and backward-compat.
     latest: {
       version: release.version,
+      channel: release.channel,
       download_url: entitled ? release.download_url : null,
       download_token: downloadToken,
       package: packageUrl,
@@ -73,8 +70,9 @@ export async function POST(req: Request) {
   const key = String(body.license_key ?? '');
   const dom = String(body.domain ?? body.site_url ?? '');
   const ver = body.version ? String(body.version) : null;
+  const channel = normalizeChannel(body.channel ?? body.beta);
   if (!key || !dom) return errorResponse(400, 'licenser_missing_params', 'license_key and domain are required');
-  return handle(new URL(req.url).origin, key, dom, ver);
+  return handle(new URL(req.url).origin, key, dom, ver, channel);
 }
 
 export async function GET(req: Request) {
@@ -82,6 +80,7 @@ export async function GET(req: Request) {
   const key = u.searchParams.get('license_key') ?? '';
   const dom = u.searchParams.get('domain') ?? u.searchParams.get('site_url') ?? '';
   const ver = u.searchParams.get('version');
+  const channel = normalizeChannel(u.searchParams.get('channel') ?? u.searchParams.get('beta'));
   if (!key || !dom) return errorResponse(400, 'licenser_missing_params', 'license_key and domain are required');
-  return handle(u.origin, key, dom, ver);
+  return handle(u.origin, key, dom, ver, channel);
 }

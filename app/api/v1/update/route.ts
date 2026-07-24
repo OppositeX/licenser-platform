@@ -1,8 +1,9 @@
 // /api/v1/update — new shape requested in LIC-204.
 // query: ?product_slug=...&version=...&license_key=...
 import { NextResponse } from 'next/server';
-import { db, findLicenseByKey, findProductBySlug, isLicenseActive } from '@/lib/licenser/db';
+import { findLicenseByKey, findProductBySlug, isLicenseActive } from '@/lib/licenser/db';
 import { issue as issueToken } from '@/lib/licenser/signer';
+import { pickLatestRelease, normalizeChannel } from '@/lib/licenser/releases';
 import { errorResponse } from '@/lib/licenser/errors';
 
 export const runtime = 'nodejs';
@@ -13,18 +14,13 @@ export async function GET(req: Request) {
   const productSlug = u.searchParams.get('product_slug') ?? '';
   const current     = u.searchParams.get('version') ?? '';
   const licenseKey  = u.searchParams.get('license_key') ?? '';
+  const channel     = normalizeChannel(u.searchParams.get('channel') ?? u.searchParams.get('beta'));
 
   if (!productSlug) return errorResponse(400, 'licenser_missing_params', 'product_slug required');
   const product = await findProductBySlug(productSlug);
   if (!product) return errorResponse(404, 'licenser_product_not_found', 'Unknown product');
 
-  const { data: release } = await db()
-    .from('product_releases')
-    .select('version,download_url,changelog,release_notes,released_at,is_latest')
-    .eq('product_id', product.id)
-    .order('is_latest', { ascending: false })
-    .order('released_at', { ascending: false })
-    .limit(1).maybeSingle();
+  const release = await pickLatestRelease(product.id, channel);
 
   if (!release) {
     return NextResponse.json({ ok: true, product: { slug: product.slug, name: product.name }, latest_version: null, has_update: false, message: 'No releases recorded yet' });
@@ -47,6 +43,7 @@ export async function GET(req: Request) {
     product: { slug: product.slug, name: product.name },
     latest_version: release.version,
     new_version: release.version,
+    channel: release.channel,
     current_version: current || null,
     has_update: !!current && release.version !== current,
     entitled,
