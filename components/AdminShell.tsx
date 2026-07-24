@@ -11,6 +11,7 @@ export const adminTheme = {
 
 export type AdminNavKey =
   | 'dashboard'
+  | 'analytics'
   | 'products'
   | 'plans'
   | 'licenses'
@@ -26,6 +27,7 @@ export type AdminNavKey =
 
 const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
   { key: 'dashboard',     label: 'Dashboard',     href: '/admin' },
+  { key: 'analytics',     label: 'Analytics',     href: '/admin/analytics' },
   { key: 'products',      label: 'Products',      href: '/admin/products' },
   { key: 'plans',         label: 'Plans',         href: '/admin/plans' },
   { key: 'licenses',      label: 'Licenses',      href: '/admin/licenses' },
