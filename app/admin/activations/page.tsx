@@ -35,7 +35,10 @@ export default async function ActivationsPage(
 
   return (
     <AdminShell active="activations" email={email}>
-      <h1 style={ui.h1}>Activations</h1>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <h1 style={{ ...ui.h1, margin: 0 }}>Activations</h1>
+        <a href="/admin/export/activations.csv" style={ui.btnGhost}>Export CSV</a>
+      </header>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 
       <form method="get" style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
