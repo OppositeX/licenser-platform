@@ -1,7 +1,7 @@
 /**
  * /api/internal/test-email — Admin-only smoke test for the email adapter.
  * Gated on the same admin session as /admin/*. Send a test license-issued
- * email to yourself to verify Resend/Postmark/SendGrid wiring.
+ * email to yourself to verify Resend wiring.
  *
  * GET  /api/internal/test-email             → tells you what provider is configured
  * POST /api/internal/test-email  { to? }    → sends a sample license-issued email
@@ -14,11 +14,9 @@ import { renderLicenseIssuedEmail } from '@/lib/email/templates/license-issued';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function detectProvider(): 'resend' | 'postmark' | 'sendgrid' | 'noop' {
-  if (process.env.RESEND_API_KEY)       return 'resend';
-  if (process.env.POSTMARK_SERVER_TOKEN) return 'postmark';
-  if (process.env.SENDGRID_API_KEY)      return 'sendgrid';
-  return 'noop';
+// Mirrors the adapter in lib/email: Resend, or noop when the key is unset.
+function detectProvider(): 'resend' | 'noop' {
+  return process.env.RESEND_API_KEY ? 'resend' : 'noop';
 }
 
 export async function GET() {
