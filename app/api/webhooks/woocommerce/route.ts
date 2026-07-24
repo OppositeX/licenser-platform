@@ -87,33 +87,17 @@ export async function POST(req: Request) {
 
   const raw = await req.text();
   const sigHeader = req.headers.get('x-wc-webhook-signature');
+
+  // WooCommerce fires an UNSIGNED ping ("webhook_id=N", form-urlencoded, no
+  // signature or topic headers) when a webhook is created or edited, purely to
+  // validate the delivery URL. It must receive a 2xx or WooCommerce refuses to
+  // activate the webhook. Real deliveries always carry a signature, so an
+  // unsigned webhook_id=... body is unambiguously the activation ping.
+  if (!sigHeader && /^\s*webhook_id=\d+\s*$/.test(raw)) {
+    return NextResponse.json({ ok: true, ping: true }, { status: 200 });
+  }
+
   if (!verifyWcSignature(raw, sigHeader, secret)) {
-    // TEMP diagnostic (remove after the 401 is solved). Logs only NON-sensitive
-    // fingerprints — never the secret itself — so we can pinpoint which side is
-    // wrong: lengths, short prefixes, and a one-way sha256 fingerprint of the
-    // running secret. Compare secret_fp with `printf %s "<your secret>" | sha256sum`.
-    try {
-      const expected = crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('base64');
-      await db().from('logs').insert({
-        level: 'warn',
-        channel: 'woo-webhook-debug',
-        message: 'WC webhook signature rejected',
-        context: {
-          header_present: !!sigHeader,
-          header_len: sigHeader?.length ?? 0,
-          header_prefix: sigHeader?.slice(0, 10) ?? null,
-          expected_len: expected.length,
-          expected_prefix: expected.slice(0, 10),
-          secret_len: secret.length,
-          secret_fp: crypto.createHash('sha256').update(secret).digest('hex').slice(0, 12),
-          body_len: raw.length,
-          body_prefix: raw.slice(0, 80),
-          content_type: req.headers.get('content-type'),
-          topic: req.headers.get('x-wc-webhook-topic'),
-          source: req.headers.get('x-wc-webhook-source'),
-        },
-      });
-    } catch { /* diagnostic must never block */ }
     return NextResponse.json({ error: 'bad_signature' }, { status: 401 });
   }
 
@@ -133,8 +117,16 @@ export async function POST(req: Request) {
   const name = [payload.billing?.first_name, payload.billing?.last_name].filter(Boolean).join(' ') || null;
   const orderOrSubId = payload.id ? String(payload.id) : null;
 
+  // WooCommerce's native order webhook uses the `order.updated` topic and puts
+  // the state in payload.status; treat a transition to "completed" the same as
+  // an explicit order.completed. Issuance is idempotent (dedupe by woo_order_id),
+  // so repeated order.updated deliveries won't double-issue.
+  const isCompletedOrder =
+    topic === 'order.completed' ||
+    (topic === 'order.updated' && String((payload as WcOrder).status ?? '').toLowerCase() === 'completed');
+
   // Topic routing.
-  if (topic === 'order.completed' || topic === 'subscription.created') {
+  if (isCompletedOrder || topic === 'subscription.created') {
     if (!email || !orderOrSubId) {
       return NextResponse.json({ error: 'missing_customer_or_id' }, { status: 400 });
     }
@@ -155,7 +147,7 @@ export async function POST(req: Request) {
       productId: mapped.productId,
       customerEmail: email,
       customerName: name,
-      wooOrderId: topic === 'order.completed' ? orderOrSubId : null,
+      wooOrderId: isCompletedOrder ? orderOrSubId : null,
       wooSubscriptionId: topic === 'subscription.created' ? orderOrSubId : null,
       expiresAt: nextPayment,
       trialEndsAt: trialEnd,
