@@ -57,9 +57,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const release = (payload as { release?: { tag_name?: string; body?: string; assets?: Array<{ browser_download_url?: string; name?: string }> } }).release ?? {};
+  const release = (payload as { release?: { tag_name?: string; body?: string; prerelease?: boolean; assets?: Array<{ browser_download_url?: string; name?: string }> } }).release ?? {};
   const repoFull = ((payload as { repository?: { full_name?: string } }).repository?.full_name ?? '').trim();
   const tag = (release.tag_name ?? '').replace(/^v/, '');
+  // A GitHub pre-release lands on the beta channel; a full release is stable.
+  const channel = release.prerelease ? 'beta' : 'stable';
 
   const { data: product } = await db().from('products').select('id,slug').eq('github_repo', repoFull).maybeSingle();
   if (!product || !tag) {
@@ -77,19 +79,21 @@ export async function POST(req: Request) {
   await db().from('product_releases').upsert({
     product_id: product.id,
     version: tag,
+    channel,
     download_url: downloadUrl,
     changelog: release.body ?? null,
-    is_latest: true,
+    is_latest: channel === 'stable',
     released_at: new Date().toISOString(),
   }, { onConflict: 'product_id,version' });
 
-  // Demote previous "latest" rows.
-  await db().from('product_releases')
-    .update({ is_latest: false })
-    .eq('product_id', product.id)
-    .neq('version', tag);
-
-  await db().from('products').update({ version: tag }).eq('id', product.id);
+  // A stable release becomes the product's displayed latest; a pre-release does not.
+  if (channel === 'stable') {
+    await db().from('product_releases')
+      .update({ is_latest: false })
+      .eq('product_id', product.id)
+      .neq('version', tag);
+    await db().from('products').update({ version: tag }).eq('id', product.id);
+  }
 
   await db().from('webhook_deliveries').insert({
     source: 'github', event, delivery_id: delivery, product_id: product.id,
