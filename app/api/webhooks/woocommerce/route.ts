@@ -87,6 +87,16 @@ export async function POST(req: Request) {
 
   const raw = await req.text();
   const sigHeader = req.headers.get('x-wc-webhook-signature');
+
+  // WooCommerce fires an UNSIGNED ping ("webhook_id=N", form-urlencoded, no
+  // signature or topic headers) when a webhook is created or edited, purely to
+  // validate the delivery URL. It must receive a 2xx or WooCommerce refuses to
+  // activate the webhook. Real deliveries always carry a signature, so an
+  // unsigned webhook_id=... body is unambiguously the activation ping.
+  if (!sigHeader && /^\s*webhook_id=\d+\s*$/.test(raw)) {
+    return NextResponse.json({ ok: true, ping: true }, { status: 200 });
+  }
+
   if (!verifyWcSignature(raw, sigHeader, secret)) {
     // TEMP diagnostic (remove after the 401 is solved). Logs only NON-sensitive
     // fingerprints — never the secret itself — so we can pinpoint which side is
@@ -133,8 +143,16 @@ export async function POST(req: Request) {
   const name = [payload.billing?.first_name, payload.billing?.last_name].filter(Boolean).join(' ') || null;
   const orderOrSubId = payload.id ? String(payload.id) : null;
 
+  // WooCommerce's native order webhook uses the `order.updated` topic and puts
+  // the state in payload.status; treat a transition to "completed" the same as
+  // an explicit order.completed. Issuance is idempotent (dedupe by woo_order_id),
+  // so repeated order.updated deliveries won't double-issue.
+  const isCompletedOrder =
+    topic === 'order.completed' ||
+    (topic === 'order.updated' && String((payload as WcOrder).status ?? '').toLowerCase() === 'completed');
+
   // Topic routing.
-  if (topic === 'order.completed' || topic === 'subscription.created') {
+  if (isCompletedOrder || topic === 'subscription.created') {
     if (!email || !orderOrSubId) {
       return NextResponse.json({ error: 'missing_customer_or_id' }, { status: 400 });
     }
@@ -155,7 +173,7 @@ export async function POST(req: Request) {
       productId: mapped.productId,
       customerEmail: email,
       customerName: name,
-      wooOrderId: topic === 'order.completed' ? orderOrSubId : null,
+      wooOrderId: isCompletedOrder ? orderOrSubId : null,
       wooSubscriptionId: topic === 'subscription.created' ? orderOrSubId : null,
       expiresAt: nextPayment,
       trialEndsAt: trialEnd,
