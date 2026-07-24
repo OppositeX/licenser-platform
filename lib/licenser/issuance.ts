@@ -9,6 +9,7 @@
  */
 import crypto from 'node:crypto';
 import { db, type LicenseRow } from './db';
+import { dispatchOutbound } from './outbound';
 
 export function generateLicenseKey(prefix = 'LCR'): string {
   const seg = () => {
@@ -125,6 +126,11 @@ export async function issueLicense(args: IssueArgs): Promise<IssueResult> {
     },
   });
 
+  await dispatchOutbound('license.issued', {
+    license_id: created.id, product_id: productId,
+    data: { key_prefix: created.key_prefix, plan_slug: planRow?.slug ?? null, customer_email: created.customer_email },
+  });
+
   return { license: created as LicenseRow, plan: planRow, product: productRow, isNew: true };
 }
 
@@ -147,6 +153,9 @@ export async function setLicenseStatusByWooSub(
     product_id: r.product_id,
     data: { reason, by: 'woocommerce_webhook', woo_subscription_id: wooSubscriptionId },
   })));
+  await Promise.all(rows.map((r) => dispatchOutbound(`license.${status}`, {
+    license_id: r.id, product_id: r.product_id, data: { reason, source: 'woocommerce' },
+  })));
   return { updated: rows.length };
 }
 
@@ -168,6 +177,9 @@ export async function setLicenseStatusByWooOrder(
     license_id: r.id,
     product_id: r.product_id,
     data: { reason, by: 'woocommerce_webhook', woo_order_id: wooOrderId },
+  })));
+  await Promise.all(rows.map((r) => dispatchOutbound(`license.${status}`, {
+    license_id: r.id, product_id: r.product_id, data: { reason, source: 'woocommerce' },
   })));
   return { updated: rows.length };
 }
