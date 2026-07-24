@@ -53,7 +53,7 @@ function verifyWcSignature(rawBody: string, header: string | null, secret: strin
  * Falls back to `products.woo_product_id` for non-subscription one-time
  * purchases that don't carry a plan distinction.
  */
-async function resolvePlanFromLineItems(items: Array<{ product_id?: number; variation_id?: number; name?: string }>): Promise<{ planId: string; productId: string; planSlug: string } | null> {
+async function resolvePlanFromLineItems(items: Array<{ product_id?: number; variation_id?: number; name?: string }>): Promise<{ planId: string; productId: string; planSlug: string; recurring: boolean } | null> {
   if (!items?.length) return null;
   const ids: string[] = [];
   for (const it of items) {
@@ -63,14 +63,14 @@ async function resolvePlanFromLineItems(items: Array<{ product_id?: number; vari
   if (!ids.length) return null;
 
   const supa = db();
-  const { data: plan } = await supa.from('plans').select('id,slug,product_id').in('woo_product_id', ids).maybeSingle();
-  if (plan) return { planId: plan.id, productId: plan.product_id, planSlug: plan.slug };
+  const { data: plan } = await supa.from('plans').select('id,slug,product_id,recurring').in('woo_product_id', ids).maybeSingle();
+  if (plan) return { planId: plan.id, productId: plan.product_id, planSlug: plan.slug, recurring: !!plan.recurring };
 
   // No plan match — try product-level mapping; pick its first plan as default.
   const { data: prod } = await supa.from('products').select('id').in('woo_product_id', ids).maybeSingle();
   if (prod) {
-    const { data: firstPlan } = await supa.from('plans').select('id,slug,product_id').eq('product_id', prod.id).order('price_cents').limit(1).maybeSingle();
-    if (firstPlan) return { planId: firstPlan.id, productId: firstPlan.product_id, planSlug: firstPlan.slug };
+    const { data: firstPlan } = await supa.from('plans').select('id,slug,product_id,recurring').eq('product_id', prod.id).order('price_cents').limit(1).maybeSingle();
+    if (firstPlan) return { planId: firstPlan.id, productId: firstPlan.product_id, planSlug: firstPlan.slug, recurring: !!firstPlan.recurring };
   }
   return null;
 }
@@ -133,6 +133,15 @@ export async function POST(req: Request) {
     const mapped = await resolvePlanFromLineItems(payload.line_items ?? []);
     if (!mapped) {
       return NextResponse.json({ error: 'unmapped_product', message: 'No plans.woo_product_id matches the order line items. Set the mapping in /admin/products.' }, { status: 422 });
+    }
+
+    // A subscription purchase fires BOTH order.updated (parent order completing)
+    // and subscription.created. For a recurring plan the subscription webhook is
+    // the source of truth (it carries the renewal date → expires_at), so skip the
+    // order path to avoid issuing two licenses. Lifetime (non-recurring) plans
+    // have no subscription webhook and are issued here as normal.
+    if (isCompletedOrder && mapped.recurring) {
+      return NextResponse.json({ ok: true, deferred: 'subscription', order_id: orderOrSubId, plan: mapped.planSlug });
     }
 
     const trialEnd = (payload as WcSubscription).trial_end_date_gmt

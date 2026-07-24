@@ -80,9 +80,17 @@ export async function issueLicense(args: IssueArgs): Promise<IssueResult> {
   const supa = db();
   const { productId, productRow, planId, planRow } = await resolveProductPlan(args);
 
-  // Idempotency: dedupe by woo_order_id when present.
+  // Idempotency: dedupe by woo_order_id or woo_subscription_id when present.
+  // WooCommerce retries webhooks, and a subscription purchase can arrive via
+  // more than one topic, so both keys must be guarded.
   if (args.wooOrderId) {
     const { data: existing } = await supa.from('licenses').select('*').eq('woo_order_id', args.wooOrderId).maybeSingle();
+    if (existing) {
+      return { license: existing as LicenseRow, plan: planRow, product: productRow, isNew: false };
+    }
+  }
+  if (args.wooSubscriptionId) {
+    const { data: existing } = await supa.from('licenses').select('*').eq('woo_subscription_id', args.wooSubscriptionId).maybeSingle();
     if (existing) {
       return { license: existing as LicenseRow, plan: planRow, product: productRow, isNew: false };
     }
