@@ -1,18 +1,14 @@
 /**
- * Email adapter — SendGrid only.
+ * Email adapter — Resend only.
  *
- * Provider locked in by Omri 2026-06-14: SendGrid is the production email sender.
- * Set `SENDGRID_API_KEY` on Vercel. If missing, every send falls through to the
- * noop branch and gets logged to the `events` table so we can see what would have
- * gone out.
+ * Provider: Resend (switched from SendGrid on 2026-07-23 per Tahir/Omri).
+ * Set `RESEND_API_KEY` on Vercel. If missing, every send falls through to the
+ * noop branch and gets logged to the `events` table so we can see what would
+ * have gone out.
  *
  * From address: `LICENSER_EMAIL_FROM` (default `Licenser <licenses@gloo.ooo>`).
- * Make sure the from-domain is verified in your SendGrid sender authentication
- * (Settings → Sender Authentication → Domain Auth on gloo.ooo).
- *
- * Optional: if you want to use a SendGrid Dynamic Template instead of inline HTML,
- * set `LICENSER_SENDGRID_TEMPLATE_ID` and pass `templateData` per call (caller
- * change required — current call sites all pass `html`).
+ * The from-domain must be verified in Resend (Domains → add gloo.ooo → set the
+ * DNS records). Sends from an unverified domain are rejected by Resend.
  */
 import { db } from '@/lib/licenser/db';
 
@@ -28,55 +24,51 @@ export interface SendEmailArgs {
 
 export interface SendEmailResult {
   ok: boolean;
-  provider: 'sendgrid' | 'noop';
+  provider: 'resend' | 'noop';
   id?: string;
   error?: string;
 }
 
 const DEFAULT_FROM = process.env.LICENSER_EMAIL_FROM ?? 'Licenser <licenses@gloo.ooo>';
 
-/** Pulls just the bare email out of a `"Name <email@x>"` string. */
-function parseFrom(s: string): { email: string; name?: string } {
-  const m = s.match(/^\s*(.*?)\s*<\s*([^>]+?)\s*>\s*$/);
-  if (m) return { name: m[1] || undefined, email: m[2] };
-  return { email: s.trim() };
+/** Resend tag names/values allow only ASCII letters, numbers, `_` and `-`. */
+function sanitizeTag(v: string): string {
+  return v.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 256) || 'untagged';
 }
 
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const from = args.from ?? DEFAULT_FROM;
-  const fromParts = parseFrom(from);
 
-  if (process.env.SENDGRID_API_KEY) {
-    const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+  if (process.env.RESEND_API_KEY) {
+    const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: args.to }] }],
-        from: fromParts,
-        reply_to: args.replyTo ? { email: args.replyTo } : undefined,
+        from,
+        to: [args.to],
         subject: args.subject,
-        content: [
-          ...(args.text ? [{ type: 'text/plain', value: args.text }] : []),
-          { type: 'text/html', value: args.html },
-        ],
-        categories: args.tag ? [args.tag] : undefined,
+        html: args.html,
+        text: args.text,
+        reply_to: args.replyTo,
+        tags: args.tag ? [{ name: 'category', value: sanitizeTag(args.tag) }] : undefined,
       }),
     });
     if (!r.ok) {
       const error = await r.text();
-      return { ok: false, provider: 'sendgrid', error: error.slice(0, 500) };
+      return { ok: false, provider: 'resend', error: error.slice(0, 500) };
     }
-    return { ok: true, provider: 'sendgrid', id: r.headers.get('x-message-id') ?? undefined };
+    const body = (await r.json().catch(() => null)) as { id?: string } | null;
+    return { ok: true, provider: 'resend', id: body?.id };
   }
 
   // Noop fallback — record so we can see what would have been sent.
   try {
     await db().from('events').insert({
       type: 'email.noop',
-      data: { to: args.to, subject: args.subject, tag: args.tag ?? null, reason: 'SENDGRID_API_KEY not set' },
+      data: { to: args.to, subject: args.subject, tag: args.tag ?? null, reason: 'RESEND_API_KEY not set' },
     });
   } catch { /* swallow */ }
   return { ok: true, provider: 'noop' };
