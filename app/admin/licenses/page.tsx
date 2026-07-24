@@ -159,7 +159,10 @@ export default async function LicensesPage(
     <AdminShell active="licenses" email={email}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Licenses</h1>
-        <Link href={`/admin/licenses?new=1${baseQs ? '&' + baseQs : ''}`} style={ui.btn}>+ Issue license</Link>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <a href="/admin/export/licenses.csv" style={ui.btnGhost}>Export CSV</a>
+          <Link href={`/admin/licenses?new=1${baseQs ? '&' + baseQs : ''}`} style={ui.btn}>+ Issue license</Link>
+        </div>
       </header>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 
