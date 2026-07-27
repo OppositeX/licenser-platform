@@ -22,6 +22,7 @@ export type AdminNavKey =
   | 'integrations'
   | 'webhooks'
   | 'sdk'
+  | 'integrate'
   | 'migration'
   | 'logs'
   | 'settings';
@@ -39,6 +40,7 @@ const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
   { key: 'integrations',  label: 'Integrations',  href: '/admin/integrations' },
   { key: 'webhooks',      label: 'Webhooks',      href: '/admin/webhooks' },
   { key: 'sdk',           label: 'SDK',           href: '/admin/sdk' },
+  { key: 'integrate',    label: 'Integrate',     href: '/admin/integrate' },
   { key: 'migration',     label: 'Migration',     href: '/admin/migration' },
   { key: 'logs',          label: 'Logs',          href: '/admin/logs' },
   { key: 'settings',      label: 'Settings',      href: '/admin/settings' },
