@@ -8,6 +8,7 @@
  */
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/auth';
+import { db } from '@/lib/licenser/db';
 import { sendEmail } from '@/lib/email';
 import { renderLicenseIssuedEmail } from '@/lib/email/templates/license-issued';
 
@@ -32,19 +33,25 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const { email } = await requireAdmin();
-  let body: { to?: string } = {};
+  let body: { to?: string; product?: string } = {};
   try { body = await req.json(); } catch { /* allow empty */ }
   const to = (body.to ?? email).toLowerCase();
 
+  // Preview the email for any product (defaults to cnvs-runtime) so we can
+  // verify the product-aware install section: POST { product: "gloo-for-elementor" }.
+  const productSlug = (body.product ?? 'cnvs-runtime').trim();
+  const { data: product } = await db().from('products').select('name').eq('slug', productSlug).maybeSingle();
+  const productName = (product as { name?: string } | null)?.name ?? productSlug;
+
   const tmpl = renderLicenseIssuedEmail({
-    productName: 'CNVS 4 Runtime',
-    productSlug: 'cnvs-runtime',
+    productName,
+    productSlug,
     customerName: 'Test User',
     licenseKey: 'LCR-TEST-XXXX-XXXX-XXXX',
-    planName: 'Pro (monthly)',
-    expiresAt: new Date(Date.now() + 14 * 86400000).toISOString(),
-    trialDays: 14,
+    planName: 'Sample plan',
+    expiresAt: new Date(Date.now() + 365 * 86400000).toISOString(),
+    trialDays: 0,
   });
   const result = await sendEmail({ to, subject: '[test] ' + tmpl.subject, html: tmpl.html, text: tmpl.text, tag: 'license-issued-test' });
-  return NextResponse.json({ ok: result.ok, provider: result.provider, id: result.id ?? null, error: result.error ?? null, to });
+  return NextResponse.json({ ok: result.ok, provider: result.provider, id: result.id ?? null, error: result.error ?? null, to, product: productSlug });
 }
