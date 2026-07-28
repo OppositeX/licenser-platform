@@ -4,7 +4,7 @@
     "type": "library",
     "license": "MIT",
     "keywords": ["licensing", "license-key", "wordpress", "wp-plugin", "licenser"],
-    "homepage": "https://licenser-platform.vercel.app",
+    "homepage": "https://licenser.gloo.ooo",
     "require": {
         "php": ">=7.4"
     },

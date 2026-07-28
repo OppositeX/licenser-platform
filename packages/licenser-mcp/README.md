@@ -56,7 +56,7 @@ your shell env via `${VAR}` expansion — do not hardcode them:
       "env": {
         "LICENSER_SUPABASE_URL": "${LICENSER_SUPABASE_URL}",
         "LICENSER_SUPABASE_SERVICE_ROLE_KEY": "${LICENSER_SUPABASE_SERVICE_ROLE_KEY}",
-        "LICENSER_BASE_URL": "https://licenser-platform.vercel.app"
+        "LICENSER_BASE_URL": "https://licenser.gloo.ooo"
       }
     }
   }

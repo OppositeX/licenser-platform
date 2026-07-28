@@ -3,7 +3,7 @@
 Self-hosted license + update delivery for the Gloo plugin ecosystem and
 the CNVS 4 SDK. Replaces the legacy WP install at `licenser.d3v.co.il`.
 
-- **Live:** https://licenser-platform.vercel.app
+- **Live:** https://licenser.gloo.ooo
 - **Stack:** Next.js 14 (app router) · Supabase (Postgres + Auth) · Vercel
 - **Status:** v0.3.0 — CNVS 4 pipeline wired: v2 validate endpoint, Woo
   webhook, email adapter, tier feature flags, products seeded.

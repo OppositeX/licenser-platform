@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, ui } from '@/components/AdminShell';
@@ -25,8 +24,10 @@ export default async function IntegratePage() {
   }
   const list = [...byProduct.values()].filter((p) => p.plans.length > 0);
 
-  const h = await headers();
-  const origin = `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('host') ?? 'licenser-platform.vercel.app'}`;
+  // Canonical public base URL for generated prompts/docs — always the custom
+  // domain, regardless of which host the admin is being viewed on. Overridable
+  // via LICENSER_PUBLIC_URL.
+  const origin = (process.env.LICENSER_PUBLIC_URL ?? 'https://licenser.gloo.ooo').replace(/\/$/, '');
 
   return (
     <AdminShell active="integrate" email={email}>

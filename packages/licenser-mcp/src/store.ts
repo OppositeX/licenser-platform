@@ -256,7 +256,7 @@ export async function validationStats(days = 7) {
 
 /** Public validation via the live REST surface (real activate/seat semantics). */
 export async function validate(args: { key: string; slug?: string; domain?: string }) {
-  const base = process.env.LICENSER_BASE_URL || 'https://licenser-platform.vercel.app';
+  const base = process.env.LICENSER_BASE_URL || 'https://licenser.gloo.ooo';
   const res = await fetch(`${base}/api/v2/validate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

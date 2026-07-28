@@ -91,7 +91,7 @@ export interface FeedbackResult {
 
 /** Constructor options for LicenserClient. */
 export interface LicenserClientOptions {
-  /** Base URL of the Licenser platform, e.g. 'https://licenser-platform.vercel.app'. No trailing slash required. */
+  /** Base URL of the Licenser platform, e.g. 'https://licenser.gloo.ooo'. No trailing slash required. */
   endpoint: string;
   /** Product slug as configured in the platform. Sent on every validate call. */
   productSlug?: string;

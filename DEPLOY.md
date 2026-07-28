@@ -30,8 +30,8 @@ the new values take effect.
 ## Supabase Auth setup
 
 For admin magic-link sign-in to work, in **Supabase → licenser → Authentication
-→ URL Configuration**, set the **Site URL** to `https://licenser-platform.vercel.app`
-and add `https://licenser-platform.vercel.app/admin/auth/callback` to the
+→ URL Configuration**, set the **Site URL** to `https://licenser.gloo.ooo`
+and add `https://licenser.gloo.ooo/admin/auth/callback` to the
 **Redirect URLs** allowlist.
 
 ## Local dev
@@ -45,7 +45,7 @@ npm run dev
 
 ## First-time admin run
 
-1. Open `https://licenser-platform.vercel.app/admin/login`.
+1. Open `https://licenser.gloo.ooo/admin/login`.
 2. Sign in with `otw.srl@gmail.com` (already seeded into `public.admins`).
 3. Add products in `/admin/products`, issue licenses in `/admin/licenses`.
 
@@ -59,7 +59,7 @@ each consumer:
 
 1. In each consumer plugin's `sdk/Config.php` (or wherever it sets
    `$server_url`), change `https://licenser.d3v.co.il` →
-   `https://licenser-platform.vercel.app`. Tag and release.
+   `https://licenser.gloo.ooo`. Tag and release.
 2. Or, when ready, move the `licenser.d3v.co.il` DNS record to point at
    Vercel (CNAME `cname.vercel-dns.com`). Then **no** consumer-plugin rebuild
    is needed — old SDK builds hit `/wp-json/licenser/v1/*` on the new
@@ -75,15 +75,15 @@ Do **not** touch the WP install at `licenser.d3v.co.il` or the
 
 ```bash
 # Health (always public)
-curl https://licenser-platform.vercel.app/api/v1/health
+curl https://licenser.gloo.ooo/api/v1/health
 
 # Reachability + signing-aware stub (no license needed)
-curl -X POST https://licenser-platform.vercel.app/api/v1/check \
+curl -X POST https://licenser.gloo.ooo/api/v1/check \
   -H 'content-type: application/json' \
   -d '{}'
 
 # Real validate
-curl -X POST https://licenser-platform.vercel.app/api/v1/validate \
+curl -X POST https://licenser.gloo.ooo/api/v1/validate \
   -H 'content-type: application/json' \
   -d '{"license_key":"LIC-XXXX-XXXX","domain":"example.com"}'
 ```
