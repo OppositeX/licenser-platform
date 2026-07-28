@@ -1,6 +1,6 @@
 # @gloo/licenser-client
 
-Isomorphic TypeScript client + React hook for the [Licenser platform](https://licenser-platform.vercel.app).
+Isomorphic TypeScript client + React hook for the [Licenser platform](https://licenser.gloo.ooo).
 
 - ✅ Works in Node 18+, modern browsers, Bun, Deno, edge runtimes
 - ✅ Zero runtime dependencies (uses native `fetch`)
@@ -19,7 +19,7 @@ npm i @gloo/licenser-client
 import { LicenserClient } from '@gloo/licenser-client';
 
 const licenser = new LicenserClient({
-  endpoint: 'https://licenser-platform.vercel.app',
+  endpoint: 'https://licenser.gloo.ooo',
   productSlug: 'cnvs-runtime',
 });
 
@@ -40,7 +40,7 @@ import { LicenseProvider, useLicense } from '@gloo/licenser-client/react';
 
 function Root() {
   return (
-    <LicenseProvider endpoint="https://licenser-platform.vercel.app" productSlug="cnvs-runtime">
+    <LicenseProvider endpoint="https://licenser.gloo.ooo" productSlug="cnvs-runtime">
       <App />
     </LicenseProvider>
   );

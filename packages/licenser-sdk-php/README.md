@@ -1,6 +1,6 @@
 # licenser-sdk-php
 
-Drop-in PHP SDK for embedding [Licenser](https://licenser-platform.vercel.app) licensing,
+Drop-in PHP SDK for embedding [Licenser](https://licenser.gloo.ooo) licensing,
 update delivery, and pre-deactivation feedback into a WordPress plugin.
 
 Sibling to [`@gloo/licenser-client`](../licenser-client-js/) (JS/React/Node) — both
@@ -69,7 +69,7 @@ inside the zip. The zip contents are byte-identical to what `install-sdk.sh` wri
 require_once __DIR__ . '/includes/licenser-sdk/SDK.php';
 
 \MyPlugin\Licenser\SDK::init([
-    'server_url'   => 'https://licenser-platform.vercel.app',
+    'server_url'   => 'https://licenser.gloo.ooo',
     'product_slug' => 'your-plugin-slug',
     'plugin_file'  => __FILE__,
     'option_key'   => 'my_plugin_license',  // unique per plugin — avoids option collisions
@@ -95,7 +95,7 @@ namespace per-plugin (e.g. to `MyPlugin\Licenser`) makes every copy isolated.
 ```php
 \MyPlugin\Licenser\SDK::init([
     // Required (4 keys) — Config.php wp_die()s if any of these are missing
-    'server_url'   => 'https://licenser-platform.vercel.app',
+    'server_url'   => 'https://licenser.gloo.ooo',
     'product_slug' => 'canvas-studio',
     'plugin_file'  => __FILE__,
     'option_key'   => 'canvas_studio_license',  // unique per plugin

@@ -4,7 +4,7 @@
   "description": "Isomorphic TypeScript client + React hook for the Licenser platform.",
   "license": "MIT",
   "author": "Gloo Software",
-  "homepage": "https://licenser-platform.vercel.app",
+  "homepage": "https://licenser.gloo.ooo",
   "repository": {
     "type": "git",
     "url": "https://github.com/gloo-software/licenser-platform.git",

@@ -11,7 +11,7 @@
  *   - subscription.cancelled    → revoke license
  *
  * Setup: in WC → Settings → Advanced → Webhooks, set delivery URL to
- *   https://licenser-platform.vercel.app/api/webhooks/woocommerce
+ *   https://licenser.gloo.ooo/api/webhooks/woocommerce
  * and Secret to whatever you put in `WC_WEBHOOK_SECRET`.
  *
  * Without `WC_WEBHOOK_SECRET` set, the route rejects all calls with 503 —
