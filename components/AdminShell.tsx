@@ -17,6 +17,7 @@ export type AdminNavKey =
   | 'licenses'
   | 'activations'
   | 'subscriptions'
+  | 'cnvs'
   | 'releases'
   | 'feedback'
   | 'integrations'
@@ -35,6 +36,7 @@ const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
   { key: 'licenses',      label: 'Licenses',      href: '/admin/licenses' },
   { key: 'activations',   label: 'Activations',   href: '/admin/activations' },
   { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions' },
+  { key: 'cnvs',          label: 'CNVS',          href: '/admin/cnvs' },
   { key: 'releases',      label: 'Releases',      href: '/admin/releases' },
   { key: 'feedback',      label: 'Feedback',      href: '/admin/feedback' },
   { key: 'integrations',  label: 'Integrations',  href: '/admin/integrations' },
