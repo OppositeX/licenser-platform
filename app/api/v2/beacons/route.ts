@@ -46,7 +46,8 @@ export async function POST(req: Request) {
   }
 
   const raw = await req.text();
-  if (raw.length > MAX_BODY_BYTES) {
+  // byteLength, not string length — a multibyte body is bigger than it counts.
+  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
     return publicJson({ ok: false, error: 'PAYLOAD_TOO_LARGE' }, { status: 413 });
   }
 
