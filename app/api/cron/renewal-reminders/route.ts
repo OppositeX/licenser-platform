@@ -9,6 +9,18 @@
  * Auth: if CRON_SECRET is set, require `Authorization: Bearer <CRON_SECRET>`
  * (Vercel Cron sends exactly this). If unset, the endpoint runs unguarded —
  * set CRON_SECRET in production.
+ *
+ * CRON_SECRET is UNSET on Vercel as of 2026-09-14, so this route is currently
+ * open to anyone who finds the path. It is not failed closed here on purpose:
+ * flipping that while the variable is unset would silently stop the daily
+ * renewal emails, which is the worse outcome. What bounds the exposure
+ * meanwhile is the de-dupe below — a license already reminded inside the
+ * 7-day window is skipped, so repeat calls cannot spam a customer. Each
+ * unguarded run logs a warning so the gap stays visible.
+ *
+ * The fix is one paste of CRON_SECRET into the Vercel project env (it cannot
+ * be done from the repo). Once it is set, this route is guarded automatically
+ * and the `if (secret && …)` below can become an unconditional check.
  */
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/licenser/db';
@@ -27,6 +39,17 @@ export async function GET(req: Request) {
   }
 
   const supa = db();
+
+  if (!secret) {
+    // Visibility only — see the header note on why this does not reject.
+    await supa.from('logs').insert({
+      level: 'warn',
+      channel: 'cron',
+      message: 'renewal-reminders ran unguarded — CRON_SECRET is not set',
+      context: { user_agent: req.headers.get('user-agent') ?? null },
+    }).then(() => {}, () => {});
+  }
+
   const now = Date.now();
   const windowEnd = new Date(now + REMINDER_WINDOW_DAYS * 86_400_000).toISOString();
   const nowIso = new Date(now).toISOString();
