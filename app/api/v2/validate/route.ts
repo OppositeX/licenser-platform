@@ -81,6 +81,10 @@ export async function POST(req: Request) {
   if (result.active) {
     return json({
       active: true,
+      // license_id (with `id` alias) — consumed by the CNVS-4 side to key the
+      // wallet / reconcile. Both names carry the same value.
+      license_id: result.license_id,
+      id: result.license_id,
       tier: result.tier,
       expires_at: result.expires_at,
       features: result.features,
@@ -91,6 +95,10 @@ export async function POST(req: Request) {
   }
   return json({
     active: false,
+    // Present when the key resolved to a license (e.g. EXPIRED/REVOKED); null
+    // for UNKNOWN_KEY. Same value under both names.
+    license_id: result.license_id,
+    id: result.license_id,
     reason: result.reason ?? 'UNKNOWN_KEY',
     expires_at: result.expires_at,
   });
