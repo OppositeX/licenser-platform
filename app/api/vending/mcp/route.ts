@@ -101,6 +101,22 @@ const TOOLS: ToolDef[] = [
     inputSchema: { type: 'object', properties: {} },
     route: { method: 'GET', path: '/api/admin/vending/cnvs/settings' },
   },
+  {
+    name: 'settings.update',
+    description: 'Write one or more cnvs.* pricing sections. Contract-validated and refuse-whole: if any section is invalid, nothing is written. dry_run:true validates and reports without writing.',
+    inputSchema: {
+      type: 'object',
+      required: ['sections'],
+      properties: {
+        sections: {
+          type: 'object',
+          description: 'Map of section name → new value. Any of: plans, credits, rateCard, packs, dev, graceDays, fairUse, entitlement.',
+        },
+        dry_run: { type: 'boolean' },
+      },
+    },
+    route: { method: 'PATCH', path: '/api/admin/vending/cnvs/settings' },
+  },
 ];
 
 const rpc = (id: unknown, result: unknown) => Response.json({ jsonrpc: '2.0', id, result });
