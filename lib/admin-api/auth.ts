@@ -31,6 +31,31 @@ export function mintToken(): { raw: string; hash: string; prefix: string } {
   return { raw, hash: hashToken(raw), prefix: raw.slice(0, 12) };
 }
 
+/**
+ * Resolve a Bearer token to its record if it is present and active, regardless
+ * of scope. Used to gate MCP `initialize` / `tools/list` (which need a valid
+ * caller but no specific scope); per-tool scope is still enforced downstream.
+ */
+export async function resolveToken(req: Request): Promise<TokenRecord | null> {
+  const header = req.headers.get('authorization') || '';
+  const m = header.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  const hash = hashToken(m[1]);
+  type Row = { id: string; prefix: string; scopes: string[]; active: boolean };
+  try {
+    const { data } = await serviceClient()
+      .from('api_tokens')
+      .select('id, prefix, scopes, active')
+      .eq('token_hash', hash)
+      .maybeSingle();
+    const row = (data as Row | null) ?? null;
+    if (!row || !row.active) return null;
+    return { id: row.id, prefix: row.prefix, scopes: row.scopes };
+  } catch {
+    return null;
+  }
+}
+
 function unauthorized(message: string, status = 401) {
   return new Response(JSON.stringify({ ok: false, error: status === 403 ? 'insufficient_scope' : 'unauthorized', message }), {
     status,

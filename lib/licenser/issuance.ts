@@ -8,7 +8,7 @@
  * at a glance.
  */
 import crypto from 'node:crypto';
-import { db, type LicenseRow } from './db';
+import { db, type LicenseRow, type LicenseStatus } from './db';
 import { dispatchOutbound } from './outbound';
 
 export function generateLicenseKey(prefix = 'LCR'): string {
@@ -132,6 +132,35 @@ export async function issueLicense(args: IssueArgs): Promise<IssueResult> {
   });
 
   return { license: created as LicenseRow, plan: planRow, product: productRow, isNew: true };
+}
+
+/**
+ * Set a license's status by its id (the path the vending API / admin UI use,
+ * as opposed to the Woo-order/subscription paths below). Records an event and
+ * fires the matching outbound webhook. Returns how many rows changed (0 = no
+ * such license) and the product id, so a caller can enforce a product scope.
+ */
+export async function setLicenseStatusById(
+  licenseId: string,
+  status: LicenseStatus,
+  reason: string,
+  by = 'vending_api',
+): Promise<{ updated: number; product_id: string | null }> {
+  const supa = db();
+  const { data, error } = await supa
+    .from('licenses')
+    .update({ status })
+    .eq('id', licenseId)
+    .select('id, product_id');
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{ id: string; product_id: string }>;
+  await Promise.all(rows.map((r) => supa.from('events').insert({
+    type: `license.${status}`, license_id: r.id, product_id: r.product_id, data: { reason, by },
+  })));
+  await Promise.all(rows.map((r) => dispatchOutbound(`license.${status}`, {
+    license_id: r.id, product_id: r.product_id, data: { reason, source: by },
+  })));
+  return { updated: rows.length, product_id: rows[0]?.product_id ?? null };
 }
 
 export async function setLicenseStatusByWooSub(
