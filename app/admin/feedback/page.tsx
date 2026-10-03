@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { AdminShell, StatusPill, ui } from '@/components/AdminShell';
 
 export const dynamic = 'force-dynamic';
@@ -20,12 +20,12 @@ interface FeedbackRow {
 
 export default async function FeedbackPage(props: { searchParams: Promise<{ reason?: string; product?: string }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
-  const { data: products } = await supa.from('products').select('id,name').order('name');
+  const { data: products } = await supa.from('products').select('id,name').eq('tenant_id', tenantId).order('name');
   const productList = (products ?? []) as Array<{ id: string; name: string }>;
 
-  let q = supa.from('feedback').select('*,products(slug,name)').order('created_at', { ascending: false }).limit(300);
+  let q = supa.from('feedback').select('*,products(slug,name)').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(300);
   if (searchParams.reason && (REASONS as readonly string[]).includes(searchParams.reason)) q = q.eq('reason', searchParams.reason);
   if (searchParams.product) q = q.eq('product_id', searchParams.product);
   const { data: rows } = await q;
@@ -34,7 +34,7 @@ export default async function FeedbackPage(props: { searchParams: Promise<{ reas
   // Breakdown for analytics
   const totalCounts: Record<string, number> = {};
   for (const r of REASONS) totalCounts[r] = 0;
-  const { data: allFb } = await supa.from('feedback').select('reason');
+  const { data: allFb } = await supa.from('feedback').select('reason').eq('tenant_id', tenantId);
   for (const r of (allFb ?? []) as Array<{ reason: string }>) {
     totalCounts[r.reason] = (totalCounts[r.reason] ?? 0) + 1;
   }
@@ -56,7 +56,7 @@ export default async function FeedbackPage(props: { searchParams: Promise<{ reas
   };
 
   return (
-    <AdminShell active="feedback" email={email}>
+    <AdminShell active="feedback" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Deactivation feedback</h1>
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 18px' }}>Submitted by the SDK when a customer deactivates a site.</p>
 

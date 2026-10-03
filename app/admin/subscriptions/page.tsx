@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { AdminShell, StatusPill, ui } from '@/components/AdminShell';
 
 export const dynamic = 'force-dynamic';
@@ -23,12 +23,13 @@ interface SubRow {
 
 export default async function SubscriptionsPage(props: { searchParams: Promise<{ source?: 'woo' | 'stripe' | 'all' }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const source = (searchParams.source ?? 'all');
 
   let q = db()
     .from('licenses')
     .select('id,key_prefix,customer_email,customer_name,status,expires_at,grace_until,woo_order_id,woo_subscription_id,stripe_subscription_id,stripe_customer_id,products(slug,name),plans(slug,name)')
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(300);
 
@@ -56,7 +57,7 @@ export default async function SubscriptionsPage(props: { searchParams: Promise<{
   };
 
   return (
-    <AdminShell active="subscriptions" email={email}>
+    <AdminShell active="subscriptions" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Subscriptions</h1>
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 18px' }}>
         Licenses linked to a recurring subscription (Woo or Stripe). Status here is driven by webhook events from the source of truth.
