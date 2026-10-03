@@ -48,11 +48,24 @@ const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
   { key: 'settings',      label: 'Settings',      href: '/admin/settings' },
 ];
 
-export function AdminShell({ active, email, children }: { active: AdminNavKey; email: string; children: React.ReactNode }) {
+/** A tenant the switcher can select between. */
+export interface ShellTenant { id: string; name: string }
+
+export function AdminShell({ active, email, children, tenants, tenantId, brandName }: {
+  active: AdminNavKey;
+  email: string;
+  children: React.ReactNode;
+  /** When provided with 2+ entries, renders the tenant switcher in the header. */
+  tenants?: ShellTenant[];
+  tenantId?: string;
+  /** White-label name for the sidebar wordmark (defaults to "Licenser"). */
+  brandName?: string;
+}) {
+  const showSwitcher = Array.isArray(tenants) && tenants.length > 1;
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '220px 1fr' }}>
       <aside style={{ borderRight: '1px solid #1f2937', padding: '20px 14px', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: '#0a0a0f' }}>
-        <Link href="/" style={{ color: '#f1f5f9', textDecoration: 'none', fontWeight: 800, fontSize: 16, display: 'block', padding: '4px 10px 18px' }}>Licenser</Link>
+        <Link href="/" style={{ color: '#f1f5f9', textDecoration: 'none', fontWeight: 800, fontSize: 16, display: 'block', padding: '4px 10px 18px' }}>{brandName ?? 'Licenser'}</Link>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV.map((n) => (
             <Link key={n.key} href={n.href} style={{
@@ -66,6 +79,14 @@ export function AdminShell({ active, email, children }: { active: AdminNavKey; e
       </aside>
       <div>
         <header style={{ borderBottom: '1px solid #1f2937', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+          {showSwitcher && (
+            <form action="/admin/switch-tenant" method="post" style={{ margin: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select name="tenant" defaultValue={tenantId} style={{ background: '#0a0a0f', border: '1px solid #1f2937', color: '#f1f5f9', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}>
+                {tenants!.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #1f2937', padding: '6px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Switch</button>
+            </form>
+          )}
           <span style={{ color: '#94a3b8', fontSize: 12 }}>{email}</span>
           <form action="/admin/logout" method="post" style={{ margin: 0 }}>
             <button style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #1f2937', padding: '6px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Sign out</button>

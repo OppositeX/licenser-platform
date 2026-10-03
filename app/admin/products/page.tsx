@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Drawer, FlashFromQuery, ui } from '@/components/AdminShell';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -22,6 +23,7 @@ interface ProductFull {
 
 async function upsertProduct(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const slug = String(formData.get('slug') ?? '').trim().toLowerCase();
   const name = String(formData.get('name') ?? '').trim();
@@ -38,9 +40,11 @@ async function upsertProduct(formData: FormData) {
     active: formData.get('active') === 'on',
   };
   if (id) {
-    await db().from('products').update(row).eq('id', id);
+    // Scope the update to the acting tenant so an operator can never edit
+    // another tenant's product by supplying its id.
+    await db().from('products').update(row).eq('id', id).eq('tenant_id', tenantId);
   } else {
-    await db().from('products').insert(row);
+    await db().from('products').insert(withTenant('products', row, tenantId));
   }
   revalidatePath('/admin/products');
   redirect('/admin/products?ok=Product%20saved');
@@ -48,9 +52,10 @@ async function upsertProduct(formData: FormData) {
 
 async function deleteProduct(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   if (!id) return;
-  await db().from('products').delete().eq('id', id);
+  await db().from('products').delete().eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/products');
   redirect('/admin/products?ok=Product%20deleted');
 }
@@ -59,14 +64,14 @@ export default async function ProductsPage(
   props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
-  const { data: products } = await db().from('products').select('*').order('created_at', { ascending: false });
+  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
+  const { data: products } = await db().from('products').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
   const list = (products ?? []) as ProductFull[];
   const editing = searchParams.edit ? list.find((p) => p.id === searchParams.edit) : null;
   const drawerOpen = !!editing || searchParams.new === '1';
 
   return (
-    <AdminShell active="products" email={email}>
+    <AdminShell active="products" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Products</h1>
         <Link href="/admin/products?new=1" style={ui.btn}>+ Add product</Link>
