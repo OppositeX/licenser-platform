@@ -2,7 +2,7 @@
  * GET /admin/export/{licenses|activations}.csv — admin-gated CSV export.
  * Mirrors the AppSero importer on /admin/migration in the other direction.
  */
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 
 export const runtime = 'nodejs';
@@ -22,7 +22,7 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ type: string }> }) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminTenant();
   const { type } = await ctx.params;
   const kind = type.replace(/\.csv$/i, '');
   const supa = db();
@@ -35,6 +35,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
     const { data } = await supa
       .from('licenses')
       .select('key,key_prefix,status,max_activations,expires_at,grace_until,customer_email,customer_name,woo_order_id,woo_subscription_id,created_at,products(slug),plans(slug)')
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(MAX_ROWS);
     const rows = (data ?? []) as Array<Record<string, unknown>>;
@@ -53,6 +54,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
     const { data } = await supa
       .from('activations')
       .select('site_url,status,ip,plugin_version,wp_version,php_version,last_seen_at,activated_at,licenses(key_prefix,customer_email,products(slug))')
+      .eq('tenant_id', tenantId)
       .order('activated_at', { ascending: false })
       .limit(MAX_ROWS);
     const rows = (data ?? []) as Array<Record<string, unknown>>;

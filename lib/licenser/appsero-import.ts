@@ -98,6 +98,8 @@ function parseDate(s: string | null): string | null {
 export interface ImportOptions {
   dryRun: boolean;
   defaultProductSlug: string | null;
+  /** The tenant imported rows belong to. Product/plan resolution is scoped to it. */
+  tenantId: string;
 }
 
 export async function importAppseroCsv(text: string, opts: ImportOptions): Promise<ImportResult> {
@@ -111,8 +113,8 @@ export async function importAppseroCsv(text: string, opts: ImportOptions): Promi
 
   // Pre-fetch products + plans for resolution.
   const [{ data: products }, { data: plans }] = await Promise.all([
-    supa.from('products').select('id,slug'),
-    supa.from('plans').select('id,slug,product_id'),
+    supa.from('products').select('id,slug').eq('tenant_id', opts.tenantId),
+    supa.from('plans').select('id,slug,product_id').eq('tenant_id', opts.tenantId),
   ]);
   const productBySlug = new Map((products ?? []).map((p: { id: string; slug: string }) => [p.slug, p]));
   const planByKey = new Map((plans ?? []).map((p: { id: string; slug: string; product_id: string }) => [`${p.product_id}|${p.slug}`, p]));
@@ -134,6 +136,7 @@ export async function importAppseroCsv(text: string, opts: ImportOptions): Promi
     const plan = planSlug ? planByKey.get(`${product.id}|${planSlug}`) : undefined;
 
     const insertRow = {
+      tenant_id: opts.tenantId,
       product_id: product.id,
       plan_id: plan?.id ?? null,
       customer_email: pick(row, headerMap.customer_email)?.toLowerCase() ?? null,
