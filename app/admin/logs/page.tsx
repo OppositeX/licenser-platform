@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireSuperadmin } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { revalidatePath } from 'next/cache';
@@ -18,8 +18,8 @@ interface LogRow {
 
 async function clearLogs() {
   'use server';
-  await requireAdmin();
-  await db().from('logs').delete().gte('id', 0);
+  await requireSuperadmin();
+  await db().from("logs").delete().gte('id', 0);
   revalidatePath('/admin/logs');
   redirect('/admin/logs?ok=Logs%20cleared');
 }
@@ -28,7 +28,7 @@ export default async function LogsPage(
   props: { searchParams: Promise<{ level?: string; channel?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const supa = db();
 
   let q = supa.from('logs').select('*').order('created_at', { ascending: false }).limit(500);
@@ -41,7 +41,7 @@ export default async function LogsPage(
   const channels = Array.from(new Set(list.map((r) => r.channel))).sort();
 
   return (
-    <AdminShell active="logs" email={email}>
+    <AdminShell active="logs" email={email} superadmin>
       <h1 style={ui.h1}>Logs</h1>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 

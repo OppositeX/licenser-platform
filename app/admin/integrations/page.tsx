@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, StatusPill, ui } from '@/components/AdminShell';
 import { getAllSettings } from '@/lib/licenser/settings';
@@ -7,13 +7,13 @@ import { getAllSettings } from '@/lib/licenser/settings';
 export const dynamic = 'force-dynamic';
 
 export default async function IntegrationsPage() {
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const settings = await getAllSettings();
 
   const [{ count: wooLicenses }, { count: stripeLicenses }, { count: githubDeliveries }] = await Promise.all([
-    supa.from('licenses').select('*', { count: 'exact', head: true }).not('woo_order_id', 'is', null),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).not('stripe_subscription_id', 'is', null),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).not('woo_order_id', 'is', null),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).not('stripe_subscription_id', 'is', null),
     supa.from('webhook_deliveries').select('*', { count: 'exact', head: true }).eq('source', 'github'),
   ]);
 
@@ -41,7 +41,7 @@ export default async function IntegrationsPage() {
   );
 
   return (
-    <AdminShell active="integrations" email={email}>
+    <AdminShell active="integrations" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Integrations</h1>
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 18px' }}>Connectors that drive license issuance and updates. Each card links to its own settings page.</p>
 

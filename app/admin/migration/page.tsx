@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { importAppseroCsv, type ImportResult } from '@/lib/licenser/appsero-import';
@@ -10,13 +10,13 @@ export const dynamic = 'force-dynamic';
 
 async function runImport(formData: FormData) {
   'use server';
-  const { email } = await requireAdmin();
+  const { email, tenantId } = await requireAdminTenant();
   const file = formData.get('csv');
   const defaultProductSlug = String(formData.get('default_product_slug') ?? '').trim() || null;
   const dryRun = formData.get('dry_run') === 'on';
   if (!(file instanceof File) || file.size === 0) redirect('/admin/migration?error=No%20file%20uploaded');
   const text = await (file as File).text();
-  const result = await importAppseroCsv(text, { dryRun, defaultProductSlug });
+  const result = await importAppseroCsv(text, { dryRun, defaultProductSlug, tenantId });
   await db().from('logs').insert({
     level: result.errors.length > 0 ? 'warn' : 'info',
     channel: 'migration',
@@ -30,8 +30,8 @@ async function runImport(formData: FormData) {
 
 export default async function MigrationPage(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
-  const { data: products } = await db().from('products').select('slug,name').order('name');
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
+  const { data: products } = await db().from('products').select('slug,name').eq('tenant_id', tenantId).order('name');
   const productList = (products ?? []) as Array<{ slug: string; name: string }>;
 
   const cookieStore = await cookies();
@@ -40,7 +40,7 @@ export default async function MigrationPage(props: { searchParams: Promise<{ ok?
   try { if (lastRaw) last = JSON.parse(lastRaw) as ImportResult; } catch { last = null; }
 
   return (
-    <AdminShell active="migration" email={email}>
+    <AdminShell active="migration" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Migration</h1>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 

@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireSuperadmin } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { getAllSettings, setManySettings } from '@/lib/licenser/settings';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 async function saveBehavior(formData: FormData) {
   'use server';
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   await setManySettings({
     woo_auto_issue: formData.get('woo_auto_issue') === 'on',
     woo_auto_revoke: formData.get('woo_auto_revoke') === 'on',
@@ -55,7 +55,7 @@ async function syncOrder(formData: FormData) {
 
 export default async function WooCommerceSettings(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const supa = db();
   const settings = await getAllSettings();
 
@@ -84,7 +84,7 @@ export default async function WooCommerceSettings(props: { searchParams: Promise
   ];
 
   return (
-    <AdminShell active="integrations" email={email}>
+    <AdminShell active="integrations" email={email} superadmin>
       <h1 style={ui.h1}><Link href="/admin/integrations" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>Integrations</Link> · WooCommerce</h1>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 

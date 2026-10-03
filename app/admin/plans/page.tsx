@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Drawer, FlashFromQuery, ui } from '@/components/AdminShell';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -27,11 +28,15 @@ interface PlanFull {
 
 async function upsertPlan(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const product_id = String(formData.get('product_id') ?? '');
   const slug = String(formData.get('slug') ?? '').trim().toLowerCase();
   const name = String(formData.get('name') ?? '').trim();
   if (!product_id || !slug || !name) redirect('/admin/plans?error=Product%2C%20slug%20and%20name%20required');
+  // Guard: the chosen product must belong to the acting tenant.
+  const { data: prod } = await db().from('products').select('id').eq('id', product_id).eq('tenant_id', tenantId).maybeSingle();
+  if (!prod) redirect('/admin/plans?error=Unknown%20product');
   const featureFlagsRaw = String(formData.get('feature_flags') ?? '').trim();
   const feature_flags = featureFlagsRaw ? featureFlagsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
   const row = {
@@ -51,9 +56,9 @@ async function upsertPlan(formData: FormData) {
     stripe_product_id: String(formData.get('stripe_product_id') ?? '').trim() || null,
   };
   if (id) {
-    await db().from('plans').update(row).eq('id', id);
+    await db().from('plans').update(row).eq('id', id).eq('tenant_id', tenantId);
   } else {
-    await db().from('plans').insert(row);
+    await db().from('plans').insert(withTenant('plans', row, tenantId));
   }
   revalidatePath('/admin/plans');
   redirect('/admin/plans?ok=Plan%20saved');
@@ -61,9 +66,10 @@ async function upsertPlan(formData: FormData) {
 
 async function deletePlan(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   if (!id) return;
-  await db().from('plans').delete().eq('id', id);
+  await db().from('plans').delete().eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/plans');
   redirect('/admin/plans?ok=Plan%20deleted');
 }
@@ -82,11 +88,11 @@ export default async function PlansPage(
   props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([
-    supa.from('products').select('id,slug,name').order('name'),
-    supa.from('plans').select('*').order('product_id').order('price_cents'),
+    supa.from('products').select('id,slug,name').eq('tenant_id', tenantId).order('name'),
+    supa.from('plans').select('*').eq('tenant_id', tenantId).order('product_id').order('price_cents'),
   ]);
   const productList = (products ?? []) as Array<{ id: string; slug: string; name: string }>;
   const list = (plans ?? []) as PlanFull[];
@@ -95,7 +101,7 @@ export default async function PlansPage(
   const drawerOpen = !!editing || searchParams.new === '1';
 
   return (
-    <AdminShell active="plans" email={email}>
+    <AdminShell active="plans" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Plans</h1>
         <Link href="/admin/plans?new=1" style={ui.btn}>+ Add plan</Link>
