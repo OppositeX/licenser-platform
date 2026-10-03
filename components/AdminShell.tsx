@@ -26,9 +26,12 @@ export type AdminNavKey =
   | 'integrate'
   | 'migration'
   | 'logs'
+  | 'tenants'
   | 'settings';
 
-const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
+/** Nav items flagged superadminOnly render only when the shell is passed superadmin. */
+const NAV: Array<{ key: AdminNavKey; label: string; href: string; superadminOnly?: boolean }> = [
+  { key: 'tenants', label: 'Tenants', href: '/admin/tenants', superadminOnly: true },
   { key: 'dashboard',     label: 'Dashboard',     href: '/admin' },
   { key: 'analytics',     label: 'Analytics',     href: '/admin/analytics' },
   { key: 'products',      label: 'Products',      href: '/admin/products' },
@@ -51,7 +54,7 @@ const NAV: Array<{ key: AdminNavKey; label: string; href: string }> = [
 /** A tenant the switcher can select between. */
 export interface ShellTenant { id: string; name: string }
 
-export function AdminShell({ active, email, children, tenants, tenantId, brandName }: {
+export function AdminShell({ active, email, children, tenants, tenantId, brandName, superadmin }: {
   active: AdminNavKey;
   email: string;
   children: React.ReactNode;
@@ -60,14 +63,17 @@ export function AdminShell({ active, email, children, tenants, tenantId, brandNa
   tenantId?: string;
   /** White-label name for the sidebar wordmark (defaults to "Licenser"). */
   brandName?: string;
+  /** Platform superadmin — unlocks superadmin-only nav (e.g. Tenants). */
+  superadmin?: boolean;
 }) {
   const showSwitcher = Array.isArray(tenants) && tenants.length > 1;
+  const nav = NAV.filter((n) => !n.superadminOnly || superadmin);
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '220px 1fr' }}>
       <aside style={{ borderRight: '1px solid #1f2937', padding: '20px 14px', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', background: '#0a0a0f' }}>
         <Link href="/" style={{ color: '#f1f5f9', textDecoration: 'none', fontWeight: 800, fontSize: 16, display: 'block', padding: '4px 10px 18px' }}>{brandName ?? 'Licenser'}</Link>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Link key={n.key} href={n.href} style={{
               color: active === n.key ? '#f1f5f9' : '#94a3b8',
               background: active === n.key ? '#1f2937' : 'transparent',

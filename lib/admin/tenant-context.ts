@@ -23,6 +23,17 @@ import {
 
 export const ACTING_TENANT_COOKIE = 'acting_tenant';
 
+/**
+ * Gate a page to platform superadmins only (tenant onboarding/management).
+ * A non-superadmin admin is sent to their normal dashboard.
+ */
+export async function requireSuperadmin(): Promise<{ email: string; userId: string }> {
+  const { email, userId } = await requireAdmin();
+  const { superadmin } = await tenantsForUser(email);
+  if (!superadmin) redirect('/admin');
+  return { email, userId };
+}
+
 export interface AdminTenantContext {
   email: string;
   userId: string;

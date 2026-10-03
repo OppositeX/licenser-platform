@@ -121,7 +121,7 @@ export default async function LicensesPage(
   props: { searchParams: Promise<{ product?: string; status?: string; reveal?: string; ok?: string; error?: string; override?: string; new?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([
     supa.from('products').select('id,slug,name').eq('tenant_id', tenantId).order('name'),
@@ -163,7 +163,7 @@ export default async function LicensesPage(
   };
 
   return (
-    <AdminShell active="licenses" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
+    <AdminShell active="licenses" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Licenses</h1>
         <div style={{ display: 'flex', gap: 10 }}>

@@ -64,14 +64,14 @@ export default async function ProductsPage(
   props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const { data: products } = await db().from('products').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
   const list = (products ?? []) as ProductFull[];
   const editing = searchParams.edit ? list.find((p) => p.id === searchParams.edit) : null;
   const drawerOpen = !!editing || searchParams.new === '1';
 
   return (
-    <AdminShell active="products" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
+    <AdminShell active="products" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Products</h1>
         <Link href="/admin/products?new=1" style={ui.btn}>+ Add product</Link>

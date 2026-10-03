@@ -88,7 +88,7 @@ export default async function PlansPage(
   props: { searchParams: Promise<{ new?: string; edit?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([
     supa.from('products').select('id,slug,name').eq('tenant_id', tenantId).order('name'),
@@ -101,7 +101,7 @@ export default async function PlansPage(
   const drawerOpen = !!editing || searchParams.new === '1';
 
   return (
-    <AdminShell active="plans" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
+    <AdminShell active="plans" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Plans</h1>
         <Link href="/admin/plans?new=1" style={ui.btn}>+ Add plan</Link>

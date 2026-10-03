@@ -116,6 +116,62 @@ export function pickActingTenant(input: {
   return memberTenantIds[0];
 }
 
+// ── Writes (used by the superadmin onboarding surface) ──────────────────────
+
+export function normalizeSlug(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
+}
+
+/** Create a tenant. Slug is normalized + must be unique. Returns the new row. */
+export async function createTenant(input: {
+  name: string;
+  slug?: string;
+  github_org?: string | null;
+  branding?: TenantBranding;
+}): Promise<{ ok: true; tenant: Tenant } | { ok: false; error: string }> {
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: 'name required' };
+  const slug = normalizeSlug(input.slug || name);
+  if (!slug) return { ok: false, error: 'could not derive a slug' };
+  const { data, error } = await db()
+    .from('licenser_tenants')
+    .insert({ name, slug, github_org: input.github_org ?? null, branding: input.branding ?? {} })
+    .select('*')
+    .single();
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: `slug "${slug}" is taken` };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, tenant: hydrate(data as TenantRow) };
+}
+
+export async function updateTenantBranding(tenantId: string, branding: TenantBranding): Promise<void> {
+  await db().from('licenser_tenants').update({ branding, updated_at: new Date().toISOString() }).eq('id', tenantId);
+}
+
+export async function addMember(tenantId: string, email: string, role: TenantRole = 'admin'): Promise<{ ok: boolean; error?: string }> {
+  const e = email.trim().toLowerCase();
+  if (!e) return { ok: false, error: 'email required' };
+  const { error } = await db().from('tenant_members').insert({ tenant_id: tenantId, email: e, role });
+  if (error) return { ok: false, error: error.code === '23505' ? 'already a member' : error.message };
+  return { ok: true };
+}
+
+export async function removeMember(tenantId: string, email: string): Promise<void> {
+  await db().from('tenant_members').delete().eq('tenant_id', tenantId).eq('email', email.trim().toLowerCase());
+}
+
+export async function listMembers(tenantId: string): Promise<TenantMember[]> {
+  const { data } = await db().from('tenant_members').select('*').eq('tenant_id', tenantId).order('created_at');
+  return (data ?? []) as TenantMember[];
+}
+
+/** True when the email is a platform superadmin (public.admins). */
+export async function isSuperadmin(email: string): Promise<boolean> {
+  const { data } = await db().from('admins').select('email').eq('email', email.toLowerCase()).maybeSingle();
+  return Boolean(data);
+}
+
 /** A user's role in one tenant. Superadmins are treated as 'owner' everywhere. */
 export async function roleForUser(email: string, tenantId: string): Promise<TenantRole | null> {
   const e = email.toLowerCase();

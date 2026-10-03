@@ -19,7 +19,7 @@ export default async function ActivationsPage(
   props: { searchParams: Promise<{ product?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const { data: products } = await supa.from('products').select('id,name').eq('tenant_id', tenantId).order('name');
   const productList = (products ?? []) as Array<{ id: string; name: string }>;
@@ -36,7 +36,7 @@ export default async function ActivationsPage(
   const filtered = searchParams.product ? list.filter((r) => r.licenses?.product_id === searchParams.product) : list;
 
   return (
-    <AdminShell active="activations" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
+    <AdminShell active="activations" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Activations</h1>
         <a href="/admin/export/activations.csv" style={ui.btnGhost}>Export CSV</a>
