@@ -87,6 +87,35 @@ export async function tenantsForUser(email: string): Promise<{ superadmin: boole
   return { superadmin: false, tenants: ((data ?? []) as TenantRow[]).map(hydrate) };
 }
 
+/**
+ * Decide which tenant an admin is acting as, given who they are and what they
+ * requested. Pure + unit-testable (no DB): callers pass the facts they looked up.
+ *
+ *  - A superadmin may act as any tenant; `requested` wins, else OTW default.
+ *  - A member may act only as a tenant they belong to; a `requested` tenant they
+ *    don't belong to is refused (null). With no `requested`, their first tenant.
+ *  - Nobody (not superadmin, no memberships) → null.
+ */
+export function pickActingTenant(input: {
+  superadmin: boolean;
+  memberTenantIds: string[];
+  requested?: string | null;
+  allTenantIds?: string[];
+}): string | null {
+  const { superadmin, memberTenantIds, requested, allTenantIds } = input;
+  if (superadmin) {
+    if (requested) {
+      // Only honour a requested tenant that actually exists (when we know the set).
+      if (!allTenantIds || allTenantIds.includes(requested)) return requested;
+      return null;
+    }
+    return DEFAULT_TENANT_ID;
+  }
+  if (memberTenantIds.length === 0) return null;
+  if (requested) return memberTenantIds.includes(requested) ? requested : null;
+  return memberTenantIds[0];
+}
+
 /** A user's role in one tenant. Superadmins are treated as 'owner' everywhere. */
 export async function roleForUser(email: string, tenantId: string): Promise<TenantRole | null> {
   const e = email.toLowerCase();
