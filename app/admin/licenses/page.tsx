@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Drawer, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { generateLicenseKey } from '@/lib/licenser/issuance';
 import { revalidatePath } from 'next/cache';
@@ -31,6 +32,7 @@ interface LicenseFull {
 
 async function issueLicense(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const product_id = String(formData.get('product_id') ?? '');
   const plan_id = String(formData.get('plan_id') ?? '') || null;
   const customer_email = String(formData.get('customer_email') ?? '').trim().toLowerCase() || null;
@@ -38,35 +40,40 @@ async function issueLicense(formData: FormData) {
   const max_activations = Math.max(1, parseInt(String(formData.get('max_activations') ?? '1'), 10) || 1);
   const expires_at = String(formData.get('expires_at') ?? '').trim() || null;
   if (!product_id) redirect('/admin/licenses?error=Product%20required');
-  await db().from('licenses').insert({
+  // Guard: the chosen product must belong to the acting tenant.
+  const { data: prod } = await db().from('products').select('id').eq('id', product_id).eq('tenant_id', tenantId).maybeSingle();
+  if (!prod) redirect('/admin/licenses?error=Unknown%20product');
+  await db().from('licenses').insert(withTenant('licenses', {
     product_id, plan_id, customer_email, customer_name, max_activations, expires_at,
     key: generateLicenseKey('LIC'),
-  });
+  }, tenantId));
   revalidatePath('/admin/licenses');
   redirect('/admin/licenses?ok=License%20issued');
 }
 
 async function setLicenseStatus(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const status = String(formData.get('status') ?? '');
   if (!id || !VALID_STATUSES.includes(status as Status)) return;
-  await db().from('licenses').update({ status }).eq('id', id);
+  await db().from('licenses').update({ status }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/licenses');
 }
 
 async function rotateKey(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   if (!id) return;
-  await db().from('licenses').update({ key: generateLicenseKey('LIC') }).eq('id', id);
+  await db().from('licenses').update({ key: generateLicenseKey('LIC') }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/licenses');
   redirect(`/admin/licenses?reveal=${id}&ok=Key%20rotated`);
 }
 
 async function applyOverride(formData: FormData) {
   'use server';
-  const { email: adminEmail } = await requireAdmin();
+  const { email: adminEmail, tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const preset = String(formData.get('preset') ?? 'custom');
   let status = String(formData.get('status') ?? '');
@@ -84,16 +91,16 @@ async function applyOverride(formData: FormData) {
   if (expires_at !== '') update.expires_at = expires_at;
 
   if (Object.keys(update).length > 0) {
-    await db().from('licenses').update(update).eq('id', id);
+    await db().from('licenses').update(update).eq('id', id).eq('tenant_id', tenantId);
   }
-  await db().from('license_overrides').insert({
+  await db().from('license_overrides').insert(withTenant('license_overrides', {
     license_id: id,
     admin_email: adminEmail,
     preset,
     status: (update.status as string) ?? null,
     expires_at: (update.expires_at as string) ?? null,
     reason,
-  });
+  }, tenantId));
   revalidatePath('/admin/licenses');
   redirect('/admin/licenses?ok=Override%20applied');
 }
@@ -114,14 +121,14 @@ export default async function LicensesPage(
   props: { searchParams: Promise<{ product?: string; status?: string; reveal?: string; ok?: string; error?: string; override?: string; new?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant } = await requireAdminTenant();
   const supa = db();
   const [{ data: products }, { data: plans }] = await Promise.all([
-    supa.from('products').select('id,slug,name').order('name'),
-    supa.from('plans').select('id,product_id,slug,name').order('name'),
+    supa.from('products').select('id,slug,name').eq('tenant_id', tenantId).order('name'),
+    supa.from('plans').select('id,product_id,slug,name').eq('tenant_id', tenantId).order('name'),
   ]);
 
-  let q = supa.from('licenses').select('*').order('created_at', { ascending: false }).limit(300);
+  let q = supa.from('licenses').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(300);
   if (searchParams.product) q = q.eq('product_id', searchParams.product);
   if (searchParams.status && VALID_STATUSES.includes(searchParams.status as Status)) q = q.eq('status', searchParams.status);
   const { data: licenses } = await q;
@@ -156,7 +163,7 @@ export default async function LicensesPage(
   };
 
   return (
-    <AdminShell active="licenses" email={email}>
+    <AdminShell active="licenses" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Licenses</h1>
         <div style={{ display: 'flex', gap: 10 }}>
