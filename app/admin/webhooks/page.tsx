@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import crypto from 'node:crypto';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Card, Drawer, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { OUTBOUND_EVENTS } from '@/lib/licenser/outbound';
 import { mask } from '@/lib/licenser/settings';
@@ -15,51 +16,56 @@ interface Delivery { id: string; webhook_id: string; event: string; status: stri
 
 async function createWebhook(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const url = String(formData.get('url') ?? '').trim();
   if (!/^https?:\/\//.test(url)) redirect('/admin/webhooks?error=A%20valid%20https%20URL%20is%20required');
   const all = formData.get('all_events') === 'on';
   const picked = formData.getAll('events').map(String);
   const events = all || picked.length === 0 ? ['*'] : picked;
   const secret = String(formData.get('secret') ?? '').trim() || crypto.randomBytes(24).toString('hex');
-  await db().from('outbound_webhooks').insert({
+  await db().from('outbound_webhooks').insert(withTenant('outbound_webhooks', {
     url, secret, events, active: true,
     description: String(formData.get('description') ?? '').trim() || null,
-  });
+  }, tenantId));
   revalidatePath('/admin/webhooks');
   redirect('/admin/webhooks?ok=Webhook%20created');
 }
 
 async function deleteWebhook(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
-  if (id) await db().from('outbound_webhooks').delete().eq('id', id);
+  if (id) await db().from('outbound_webhooks').delete().eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/webhooks');
   redirect('/admin/webhooks?ok=Webhook%20deleted');
 }
 
 async function toggleWebhook(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const active = formData.get('active') === '1';
-  if (id) await db().from('outbound_webhooks').update({ active: !active }).eq('id', id);
+  if (id) await db().from('outbound_webhooks').update({ active: !active }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/webhooks');
   redirect('/admin/webhooks');
 }
 
 export default async function WebhooksPage(props: { searchParams: Promise<{ new?: string; ok?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
 
-  const [{ data: hooks }, { data: deliveries }] = await Promise.all([
-    db().from('outbound_webhooks').select('*').order('created_at', { ascending: false }),
-    db().from('outbound_webhook_deliveries').select('*').order('created_at', { ascending: false }).limit(20),
-  ]);
+  const { data: hooks } = await db().from('outbound_webhooks').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
   const list = (hooks ?? []) as Hook[];
+  // Deliveries have no tenant_id of their own — scope them to this tenant's hooks.
+  const hookIds = list.map((h) => h.id);
+  const { data: deliveries } = hookIds.length
+    ? await db().from('outbound_webhook_deliveries').select('*').in('webhook_id', hookIds).order('created_at', { ascending: false }).limit(20)
+    : { data: [] };
   const recent = (deliveries ?? []) as Delivery[];
   const drawerOpen = sp.new === '1';
 
   return (
-    <AdminShell active="webhooks" email={email}>
+    <AdminShell active="webhooks" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Outbound webhooks</h1>
         <Link href="/admin/webhooks?new=1" style={ui.btn}>+ Add endpoint</Link>
