@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireSuperadmin } from '@/lib/admin/tenant-context';
 import { AdminShell, Card, FlashFromQuery, ui } from '@/components/AdminShell';
 import { getAllSettings, mask, setManySettings, setSetting } from '@/lib/licenser/settings';
 import { revalidatePath } from 'next/cache';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 async function saveSettings(formData: FormData) {
   'use server';
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const githubSecret = String(formData.get('github_webhook_secret') ?? '');
   const githubPat = String(formData.get('github_pat') ?? '');
   const updates: Record<string, unknown> = {
@@ -29,7 +29,7 @@ async function saveSettings(formData: FormData) {
 
 async function rotateSigningSecret() {
   'use server';
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   await setSetting('signing_secret', crypto.randomBytes(32).toString('hex'), email);
   revalidatePath('/admin/settings');
   redirect('/admin/settings?ok=Signing%20secret%20rotated');
@@ -37,11 +37,11 @@ async function rotateSigningSecret() {
 
 export default async function SettingsPage(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const settings = await getAllSettings();
 
   return (
-    <AdminShell active="settings" email={email}>
+    <AdminShell active="settings" email={email} superadmin>
       <h1 style={ui.h1}>Settings</h1>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 

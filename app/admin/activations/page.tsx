@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { AdminShell, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { revalidatePath } from 'next/cache';
 
@@ -8,9 +8,10 @@ export const dynamic = 'force-dynamic';
 
 async function revokeActivation(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   if (!id) return;
-  await db().from('activations').update({ status: 'deactivated' }).eq('id', id);
+  await db().from('activations').update({ status: 'deactivated' }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/activations');
 }
 
@@ -18,13 +19,14 @@ export default async function ActivationsPage(
   props: { searchParams: Promise<{ product?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
-  const { data: products } = await supa.from('products').select('id,name').order('name');
+  const { data: products } = await supa.from('products').select('id,name').eq('tenant_id', tenantId).order('name');
   const productList = (products ?? []) as Array<{ id: string; name: string }>;
 
   let q = supa.from('activations')
     .select('id,site_url,status,plugin_version,wp_version,php_version,activated_at,last_seen_at,license_id,ip,licenses(key_prefix,product_id,customer_email,products(slug,name))')
+    .eq('tenant_id', tenantId)
     .order('last_seen_at', { ascending: false })
     .limit(300);
   // Filter by product via a nested join — we can't .eq on a related column directly,
@@ -34,7 +36,7 @@ export default async function ActivationsPage(
   const filtered = searchParams.product ? list.filter((r) => r.licenses?.product_id === searchParams.product) : list;
 
   return (
-    <AdminShell active="activations" email={email}>
+    <AdminShell active="activations" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Activations</h1>
         <a href="/admin/export/activations.csv" style={ui.btnGhost}>Export CSV</a>

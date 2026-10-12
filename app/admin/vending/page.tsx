@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Card, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { VENDING_SCOPES, mintToken } from '@/lib/admin-api/auth';
 import { revalidatePath } from 'next/cache';
@@ -13,14 +14,14 @@ interface AuditRow { id: string; token_prefix: string | null; tool: string; scop
 
 async function createToken(formData: FormData) {
   'use server';
-  const { email } = await requireAdmin();
+  const { email, tenantId } = await requireAdminTenant();
   const name = String(formData.get('name') ?? '').trim();
   if (!name) redirect('/admin/vending?error=Name%20required');
   const scopes = VENDING_SCOPES.filter((s) => formData.get(`scope:${s}`) === 'on');
   if (scopes.length === 0) redirect('/admin/vending?error=Pick%20at%20least%20one%20scope');
 
   const { raw, hash, prefix } = mintToken();
-  const { error } = await db().from('api_tokens').insert({ name, token_hash: hash, prefix, scopes, created_by: email });
+  const { error } = await db().from('api_tokens').insert(withTenant('api_tokens', { name, token_hash: hash, prefix, scopes, created_by: email }, tenantId));
   if (error) redirect('/admin/vending?error=' + encodeURIComponent(error.message));
 
   // Show the raw token exactly once — stored hashed, never retrievable again.
@@ -31,28 +32,30 @@ async function createToken(formData: FormData) {
 
 async function revokeToken(formData: FormData) {
   'use server';
-  await requireAdmin();
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
-  if (id) await db().from('api_tokens').update({ active: false }).eq('id', id);
+  if (id) await db().from('api_tokens').update({ active: false }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/vending');
   redirect('/admin/vending?ok=Token%20revoked');
 }
 
 export default async function VendingPage(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
 
-  const [{ data: tokens }, { data: auditRows }] = await Promise.all([
-    db().from('api_tokens').select('*').order('created_at', { ascending: false }),
-    db().from('api_audit').select('id,token_prefix,tool,scope,dry_run,ok,status,created_at').order('created_at', { ascending: false }).limit(15),
-  ]);
+  const { data: tokens } = await db().from('api_tokens').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
   const list = (tokens ?? []) as TokenRow[];
+  // api_audit has no tenant_id — scope to this tenant's tokens.
+  const tokenIds = list.map((t) => t.id);
+  const { data: auditRows } = tokenIds.length
+    ? await db().from('api_audit').select('id,token_prefix,tool,scope,dry_run,ok,status,created_at').in('token_id', tokenIds).order('created_at', { ascending: false }).limit(15)
+    : { data: [] };
   const recent = (auditRows ?? []) as AuditRow[];
   const jar = await cookies();
   const rawOnce = jar.get('vending_new_token')?.value ?? null;
 
   return (
-    <AdminShell active="vending" email={email}>
+    <AdminShell active="vending" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Vending API tokens</h1>
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '-8px 0 20px' }}>
         Scoped, least-privilege bearer tokens for the CNVS vending API

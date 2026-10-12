@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, ui } from '@/components/AdminShell';
 
@@ -61,7 +61,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 }
 
 export default async function AnalyticsPage() {
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
 
   const now = Date.now();
@@ -73,13 +73,13 @@ export default async function AnalyticsPage() {
     activeInstalls, seen24h, seen7d,
     installRows, validationRows, feedbackRows, issuedCount,
   ] = await Promise.all([
-    supa.from('activations').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supa.from('activations').select('*', { count: 'exact', head: true }).eq('status', 'active').gte('last_seen_at', since24h),
-    supa.from('activations').select('*', { count: 'exact', head: true }).eq('status', 'active').gte('last_seen_at', since7d),
-    supa.from('activations').select('plugin_version,wp_version,php_version').eq('status', 'active').limit(5000),
-    supa.from('validation_log').select('result,ts').gte('ts', since).limit(20000),
-    supa.from('feedback').select('reason,created_at').gte('created_at', since).limit(5000),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).gte('created_at', since),
+    supa.from('activations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active'),
+    supa.from('activations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active').gte('last_seen_at', since24h),
+    supa.from('activations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active').gte('last_seen_at', since7d),
+    supa.from('activations').select('plugin_version,wp_version,php_version').eq('tenant_id', tenantId).eq('status', 'active').limit(5000),
+    supa.from('validation_log').select('result,ts').eq('tenant_id', tenantId).gte('ts', since).limit(20000),
+    supa.from('feedback').select('reason,created_at').eq('tenant_id', tenantId).gte('created_at', since).limit(5000),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', since),
   ]);
 
   const installs = (installRows.data ?? []) as Array<Record<string, unknown>>;
@@ -97,7 +97,7 @@ export default async function AnalyticsPage() {
   const validRate = validTotal > 0 ? Math.round((validOk / validTotal) * 100) : 0;
 
   return (
-    <AdminShell active="analytics" email={email}>
+    <AdminShell active="analytics" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Analytics</h1>
       <p style={{ color: '#94a3b8', fontSize: 13, margin: '-8px 0 22px' }}>Install base and last {WINDOW_DAYS} days of activity.</p>
 

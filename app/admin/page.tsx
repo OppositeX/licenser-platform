@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, ui } from '@/components/AdminShell';
 
@@ -20,19 +20,19 @@ const ENDPOINTS: Array<{ method: string; path: string; desc: string }> = [
 ];
 
 export default async function AdminIndex() {
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
   const [products, plansC, licActive, licGrace, licExpired, licSuspended, actActive, releases, feedback, events] = await Promise.all([
-    supa.from('products').select('*', { count: 'exact', head: true }),
-    supa.from('plans').select('*', { count: 'exact', head: true }),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).not('grace_until', 'is', null),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('status', 'expired'),
-    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('status', 'suspended'),
-    supa.from('activations').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supa.from('product_releases').select('*', { count: 'exact', head: true }),
-    supa.from('feedback').select('*', { count: 'exact', head: true }),
-    supa.from('events').select('id,type,created_at,data').order('created_at', { ascending: false }).limit(10),
+    supa.from('products').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supa.from('plans').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active'),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).not('grace_until', 'is', null),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'expired'),
+    supa.from('licenses').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'suspended'),
+    supa.from('activations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'active'),
+    supa.from('product_releases').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supa.from('feedback').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supa.from('events').select('id,type,created_at,data').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(10),
   ]);
 
   const h = await headers();
@@ -52,7 +52,7 @@ export default async function AdminIndex() {
   };
 
   return (
-    <AdminShell active="dashboard" email={email}>
+    <AdminShell active="dashboard" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <h1 style={ui.h1}>Overview</h1>
 
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 24 }}>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { requireAdmin } from '@/lib/admin/auth';
 import { db } from '@/lib/licenser/db';
+import { requireAdminTenant } from '@/lib/admin/tenant-context';
+import { withTenant } from '@/lib/licenser/tenant-db';
 import { AdminShell, Drawer, FlashFromQuery, ui } from '@/components/AdminShell';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -22,10 +23,13 @@ interface ReleaseRow {
 
 async function upsertRelease(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const product_id = String(formData.get('product_id') ?? '');
   const version = String(formData.get('version') ?? '').trim();
   if (!product_id || !version) redirect('/admin/releases?error=Product%20and%20version%20required');
+  const { data: prod } = await db().from('products').select('id').eq('id', product_id).eq('tenant_id', tenantId).maybeSingle();
+  if (!prod) redirect('/admin/releases?error=Unknown%20product');
   const channel = String(formData.get('channel') ?? 'stable');
   const row = {
     product_id,
@@ -38,15 +42,15 @@ async function upsertRelease(formData: FormData) {
     is_latest: formData.get('is_latest') === 'on',
   };
   if (row.is_latest) {
-    await db().from('product_releases').update({ is_latest: false }).eq('product_id', product_id);
+    await db().from('product_releases').update({ is_latest: false }).eq('product_id', product_id).eq('tenant_id', tenantId);
   }
   if (id) {
-    await db().from('product_releases').update(row).eq('id', id);
+    await db().from('product_releases').update(row).eq('id', id).eq('tenant_id', tenantId);
   } else {
-    await db().from('product_releases').insert(row);
+    await db().from('product_releases').insert(withTenant('product_releases', row, tenantId));
   }
   if (row.is_latest && !row.yanked && row.channel === 'stable') {
-    await db().from('products').update({ version: row.version }).eq('id', product_id);
+    await db().from('products').update({ version: row.version }).eq('id', product_id).eq('tenant_id', tenantId);
   }
   revalidatePath('/admin/releases');
   redirect(`/admin/releases?product=${product_id}&ok=Release%20saved`);
@@ -54,20 +58,22 @@ async function upsertRelease(formData: FormData) {
 
 async function toggleYank(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const product_id = String(formData.get('product_id') ?? '');
   const yanked = formData.get('yanked') === '1';
-  if (id) await db().from('product_releases').update({ yanked: !yanked }).eq('id', id);
+  if (id) await db().from('product_releases').update({ yanked: !yanked }).eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/releases');
   redirect(`/admin/releases?product=${product_id}&ok=${yanked ? 'Release%20restored' : 'Release%20yanked%20(rolled%20back)'}`);
 }
 
 async function deleteRelease(formData: FormData) {
   'use server';
+  const { tenantId } = await requireAdminTenant();
   const id = String(formData.get('id') ?? '');
   const product_id = String(formData.get('product_id') ?? '');
   if (!id) return;
-  await db().from('product_releases').delete().eq('id', id);
+  await db().from('product_releases').delete().eq('id', id).eq('tenant_id', tenantId);
   revalidatePath('/admin/releases');
   redirect(`/admin/releases?product=${product_id}&ok=Release%20deleted`);
 }
@@ -76,15 +82,15 @@ export default async function ReleasesPage(
   props: { searchParams: Promise<{ product?: string; new?: string; edit?: string; ok?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email, tenantId, tenants, tenant, superadmin } = await requireAdminTenant();
   const supa = db();
-  const { data: products } = await supa.from('products').select('id,slug,name').order('name');
+  const { data: products } = await supa.from('products').select('id,slug,name').eq('tenant_id', tenantId).order('name');
   const productList = (products ?? []) as Array<{ id: string; slug: string; name: string }>;
   const productId = searchParams.product ?? null;
 
   let releases: ReleaseRow[] = [];
   if (productId) {
-    const { data } = await supa.from('product_releases').select('*').eq('product_id', productId).order('released_at', { ascending: false });
+    const { data } = await supa.from('product_releases').select('*').eq('tenant_id', tenantId).eq('product_id', productId).order('released_at', { ascending: false });
     releases = (data ?? []) as ReleaseRow[];
   }
   const editing = searchParams.edit ? releases.find((r) => r.id === searchParams.edit) : null;
@@ -92,7 +98,7 @@ export default async function ReleasesPage(
   const drawerOpen = !!productId && (!!editing || searchParams.new === '1');
 
   return (
-    <AdminShell active="releases" email={email}>
+    <AdminShell active="releases" email={email} tenants={tenants} tenantId={tenantId} brandName={tenant?.branding?.displayName} superadmin={superadmin}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ ...ui.h1, margin: 0 }}>Releases</h1>
         {productId && <Link href={`/admin/releases?product=${productId}&new=1`} style={ui.btn}>+ Add release</Link>}

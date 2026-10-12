@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import crypto from 'node:crypto';
-import { requireAdmin } from '@/lib/admin/auth';
+import { requireSuperadmin } from '@/lib/admin/tenant-context';
 import { db } from '@/lib/licenser/db';
 import { AdminShell, Card, FlashFromQuery, StatusPill, ui } from '@/components/AdminShell';
 import { getAllSettings, mask, setManySettings, setSetting } from '@/lib/licenser/settings';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 async function saveCredentials(formData: FormData) {
   'use server';
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const updates: { github_webhook_secret?: string; github_pat?: string } = {};
   const secret = String(formData.get('github_webhook_secret') ?? '');
   const pat = String(formData.get('github_pat') ?? '');
@@ -26,7 +26,7 @@ async function saveCredentials(formData: FormData) {
 
 async function rotateSecret() {
   'use server';
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const fresh = crypto.randomBytes(32).toString('hex');
   await setSetting('github_webhook_secret', fresh, email);
   revalidatePath('/admin/integrations/github');
@@ -48,7 +48,7 @@ async function testPayload(formData: FormData) {
 
 export default async function GithubSettings(props: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
-  const { email } = await requireAdmin();
+  const { email } = await requireSuperadmin();
   const supa = db();
   const settings = await getAllSettings();
 
@@ -71,7 +71,7 @@ export default async function GithubSettings(props: { searchParams: Promise<{ ok
   }
 
   return (
-    <AdminShell active="integrations" email={email}>
+    <AdminShell active="integrations" email={email} superadmin>
       <h1 style={ui.h1}><Link href="/admin/integrations" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>Integrations</Link> · GitHub</h1>
       <FlashFromQuery ok={searchParams.ok} error={searchParams.error} />
 
