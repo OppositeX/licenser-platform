@@ -5,6 +5,7 @@ import {
   logEvent,
 } from '@/lib/licenser/db';
 import { normalizeDomain } from '@/lib/licenser/domain';
+import { isAllowedDomain } from '@/lib/licenser/validate';
 import { errorResponse, readClientIp } from '@/lib/licenser/errors';
 import { dispatchOutbound } from '@/lib/licenser/outbound';
 
@@ -43,6 +44,24 @@ export async function POST(req: Request) {
   const supa = db();
   const now = new Date().toISOString();
 
+  // Dev / local hosts (localhost, 127.0.0.1, *.local, LICENSER_DEV_DOMAINS) never
+  // spend a seat — they match the validate allowlist, so activating one would be
+  // a phantom seat. Answer 200 without creating a row.
+  if (isAllowedDomain(domain)) {
+    const used = await countActiveActivations(license.id);
+    await logEvent('activate', { domain, version, dev_host: true }, { license_id: license.id, product_id: license.product_id });
+    return NextResponse.json({
+      license: await publicLicenseView(license),
+      activation: null,
+      instance_token: null,
+      dev_host: true,
+      created: false,
+      used,
+      limit: license.max_activations,
+    });
+  }
+
+  let created = false;
   let activation = await findActivation(license.id, domain);
   if (activation) {
     if (activation.status === 'deactivated') {
@@ -67,20 +86,27 @@ export async function POST(req: Request) {
     if (active >= license.max_activations) {
       return errorResponse(403, 'licenser_max_activations', 'License activation limit reached.', { used: active, limit: license.max_activations });
     }
-    const { data: created, error: insErr } = await supa
+    const { data: inserted, error: insErr } = await supa
       .from('activations')
       .insert({ license_id: license.id, site_url: domain, ip, user_agent: ua, plugin_version: version, wp_version: wpVer, php_version: phpVer })
       .select('*').single();
     if (insErr) return errorResponse(500, 'licenser_db_error', insErr.message);
-    activation = created;
+    activation = inserted;
+    created = true;
   }
 
-  await logEvent('activate', { domain, version }, { license_id: license.id, product_id: license.product_id });
+  await logEvent('activate', { domain, version, created }, { license_id: license.id, product_id: license.product_id });
   await dispatchOutbound('license.activated', { license_id: license.id, product_id: license.product_id, data: { domain } });
+
+  // Active-seat count after this operation, so an install can show "used / limit".
+  const used = await countActiveActivations(license.id);
 
   return NextResponse.json({
     license: await publicLicenseView(license),
     activation: publicActivationView(activation!),
     instance_token: activation!.instance_token,
+    created,
+    used,
+    limit: license.max_activations,
   });
 }
