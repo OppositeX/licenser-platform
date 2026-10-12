@@ -27,7 +27,7 @@ interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  route: { method: 'GET' | 'POST' | 'PATCH'; path: string };
+  route: { method: 'GET' | 'POST' | 'PATCH' | 'PUT'; path: string };
 }
 
 const TOOLS: ToolDef[] = [
@@ -72,6 +72,22 @@ const TOOLS: ToolDef[] = [
       },
     },
     route: { method: 'PATCH', path: '/api/admin/vending/cnvs/license' },
+  },
+  {
+    name: 'license.update',
+    description: 'Change mutable fields on an existing cnvs-runtime license (max_activations, expires_at, customer_name). Only supplied fields change; expires_at/customer_name null clears them. dry_run:true returns the before/after without applying.',
+    inputSchema: {
+      type: 'object',
+      required: ['license_id'],
+      properties: {
+        license_id: { type: 'string' },
+        max_activations: { type: 'integer', description: 'new seat cap (distinct active domains); positive integer' },
+        expires_at: { type: ['string', 'null'], description: 'ISO timestamp, or null to clear (never expires)' },
+        customer_name: { type: ['string', 'null'] },
+        dry_run: { type: 'boolean' },
+      },
+    },
+    route: { method: 'PUT', path: '/api/admin/vending/cnvs/license' },
   },
   {
     name: 'credits.grant',

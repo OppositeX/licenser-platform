@@ -43,6 +43,6 @@ describe('cnvs perSeat carries the sold tiers', () => {
     };
     const { settings } = buildCnvsSettings(stored);
     expect(settings.credits.perSeat).toEqual({ starter: 500, designer: 1500, powerhouse: 4000 });
-    expect((settings.credits.perSeat as Record<string, number>).bogus).toBeUndefined();
+    expect((settings.credits.perSeat as unknown as Record<string, number>).bogus).toBeUndefined();
   });
 });
